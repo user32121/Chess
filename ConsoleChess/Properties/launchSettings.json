@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ConsoleChess": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
