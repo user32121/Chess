@@ -3,8 +3,10 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using static Chess.DllWrapper;
+using ThreadState = System.Threading.ThreadState;
 
 namespace ChessGUI
 {
@@ -33,14 +35,18 @@ namespace ChessGUI
         };
         private const int pieceTexSize = 320;
         private const int pieceDrawSize = 64;
+        private SpriteFont font;
 
         private PIECE[] board;
-        private Move prevMove = new Move();
+        private Move prevMove = new Move() { fromX = -1, toX = -1 };
         private bool isWhiteTurn = true;
         private Thread algoThread;
+        private List<Move> algoIterOutputs = new List<Move>();
         private Move algoOutput;
+        private Stopwatch stopwatch = new Stopwatch();
 
-        private const int maxDepth = 5;
+        private const int maxTime = 10;
+        private const int maxDepth = 20;
 
         private MouseState prevMS;
         private Point? mouseDownOn;
@@ -79,20 +85,30 @@ namespace ChessGUI
             blank = new Texture2D(GraphicsDevice, 1, 1);
             blank.SetData(new Color[] { Color.White });
             pieceTex = Content.Load<Texture2D>("pieces");
+            font = Content.Load<SpriteFont>("font");
         }
 
         private void GetNextMove()
         {
+            stopwatch.Restart();
             PIECE[] workingBoard = new PIECE[board.Length];
             board.CopyTo(workingBoard, 0);
-            algoOutput = findBestMove(workingBoard, prevMove, maxDepth);
+            algoIterOutputs.Clear();
+            int depth = 1;
+            while (stopwatch.ElapsedMilliseconds <= maxTime * 1000 && depth <= maxDepth)
+            {
+                Move output = findBestMove(workingBoard, prevMove, depth, maxTime - (int)(stopwatch.ElapsedMilliseconds / 1000) + 1);
+                if (output.fromX == -1)
+                    continue;
+                algoIterOutputs.Add(output);
+                depth++;
+            }
+            stopwatch.Stop();
+            algoOutput = algoIterOutputs[algoIterOutputs.Count - 1];
         }
 
         protected override void Update(GameTime gameTime)
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
-
             MouseState ms = Mouse.GetState();
 
             if (isWhiteTurn)
@@ -170,6 +186,13 @@ namespace ChessGUI
                 Point spritePos = pieceTexIndex[board[mouseDownOn.Value.Y * 8 + mouseDownOn.Value.X]];
                 _spriteBatch.Draw(pieceTex, new Rectangle(ms.X - pieceDrawSize / 2, ms.Y - pieceDrawSize / 2, pieceDrawSize, pieceDrawSize), new Rectangle(spritePos, new Point(pieceTexSize, pieceTexSize)), Color.White);
             }
+
+            if (prevMove.fromX != -1)
+                _spriteBatch.DrawString(font, Utils.MoveToString(prevMove), new Vector2(pieceDrawSize * 8 + 10, 10), Color.Black);
+
+            _spriteBatch.DrawString(font, (stopwatch.ElapsedMilliseconds / 1000.0).ToString(), new Vector2(pieceDrawSize * 8 + 10, 30), Color.Black);
+            for (int i = 0; i < algoIterOutputs.Count; i++)
+                _spriteBatch.DrawString(font, Utils.MoveToString(algoIterOutputs[i]), new Vector2(pieceDrawSize * 8 + 10, 50 + i * 20), Color.Black);
 
             _spriteBatch.End();
 

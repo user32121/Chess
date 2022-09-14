@@ -34,6 +34,6 @@ namespace Chess
             BLACK_KING = 25,
         };
         [DllImport("ChessAlgo")]
-        public static extern Move findBestMove(PIECE[] board, Move lastMove, int maxDepth);
+        public static extern Move findBestMove(PIECE[] board, Move lastMove, int maxDepth, int maxTime);
     }
 }

@@ -44,7 +44,7 @@ struct Move
 extern "C" CHESSALGO_API int test();
 //board is flattened, y first array [y*w + x]
 //0,0 is at the top left corner
-extern "C" CHESSALGO_API Move findBestMove(PIECE board[], const Move & lastMove, int maxDepth);
+extern "C" CHESSALGO_API Move findBestMove(PIECE board[], const Move & lastMove, int maxDepth, int maxTime);
 
 Move findBestMove(PIECE board[], const Move& lastMove, bool myturn, int maxDepth);
 int getBoardScoreAfterMove(PIECE board[], const Move& move, bool myTurn, int maxDepth);

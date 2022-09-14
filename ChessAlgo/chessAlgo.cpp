@@ -8,8 +8,28 @@ int test() {
 }
 
 
-Move findBestMove(PIECE board[], const Move& lastMove, int maxDepth) {
-    return findBestMove(board, lastMove, true, maxDepth);
+
+bool algoRunning = false;
+chrono::steady_clock::time_point algoStartTime;
+chrono::seconds algoMaxTime;
+
+bool isOutOfTime() {
+    return chrono::high_resolution_clock::now() - algoStartTime > algoMaxTime;
+}
+
+Move findBestMove(PIECE board[], const Move& lastMove, int maxDepth, int maxTime) {
+    if (maxDepth <= 0 || algoRunning) {
+        return { -1 };
+    }
+    algoRunning = true;
+    algoMaxTime = chrono::seconds(maxTime);
+    algoStartTime = chrono::high_resolution_clock::now();
+    Move move = findBestMove(board, lastMove, true, maxDepth);
+    algoRunning = false;
+    if (isOutOfTime())
+        return { -1 };
+    else
+        return move;
 }
 
 int getBoardScore(PIECE board[], const Move& lastMove, bool myTurn, int maxDepth) {
@@ -86,6 +106,8 @@ int getBoardScore(PIECE board[], const Move& lastMove, bool myTurn, int maxDepth
 }
 
 int getBoardScoreAfterMove(PIECE board[], const Move& move, bool myTurn, int maxDepth) {
+    if (isOutOfTime())
+        return 0;
     PIECE prevPiece = board[move.toY * 8 + move.toX];
     board[move.toY * 8 + move.toX] = board[move.fromY * 8 + move.fromX];
     board[move.fromY * 8 + move.fromX] = PIECE::NONE;
@@ -97,6 +119,9 @@ int getBoardScoreAfterMove(PIECE board[], const Move& move, bool myTurn, int max
 }
 
 void inline setBest(PIECE board[], bool myTurn, int maxDepth, int& bestScore, Move& bestMove, Move newMove) {
+    if (isOutOfTime())
+        return;
+
     int newScore = getBoardScoreAfterMove(board, newMove, myTurn, maxDepth);
     if (myTurn)
     {

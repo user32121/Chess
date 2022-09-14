@@ -274,5 +274,13 @@ namespace ChessGUI
                     return false;
             }
         }
+
+        public static string MoveToString(Move move)
+        {
+            if (isWithinBounds(move.fromX, move.fromY) && isWithinBounds(move.toX, move.toY))
+                return string.Format("{0}{1} > {2}{3}", (char)(move.fromX + 'a'), (char)(8 - move.fromY + '0'), (char)(move.toX + 'a'), (char)(8 - move.toY + '0'));
+            else
+                return "out of bounds move";
+        }
     }
 }
