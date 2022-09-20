@@ -34,33 +34,53 @@ const int QUEEN_VALUE = 9;
 const int WIN_VALUE = 1000;
 const int LOSE_VALUE = 10000;
 
+enum class MOVE_DATA : int
+{
+    NONE = 0,
+    PROMOTION_QUEEN = 1,
+    PROMOTION_ROOK = 2,
+    PROMOTION_BISHOP = 3,
+    PROMOTION_KNIGHT = 4,
+    CASTLE_KING_SIDE = 5,
+    CASTLE_QUEEN_SIDE = 6,
+};
+
 struct Move
 {
     int fromX, fromY, toX, toY;
+    MOVE_DATA dat;
 };
-
+struct Board
+{
+    PIECE board[64]{};
+    bool whiteCanCastleQueenSide = true, whiteCanCastleKingSide = true, blackCanCastleQueenSide = true, blackCanCastleKingSide = true;
+    int enPassantAvailable = -1;
+};
 
 
 extern "C" CHESSALGO_API int test();
 //board is flattened, y first array [y*w + x]
 //0,0 is at the top left corner
-extern "C" CHESSALGO_API Move findBestMove(PIECE board[], const Move & lastMove, int maxDepth, int maxTime);
+extern "C" CHESSALGO_API Move apiFindBestMove(Board board, int maxDepth, long long maxTime, int* scoreAfterMove);
 
-Move findBestMove(PIECE board[], const Move& lastMove, bool myturn, int maxDepth);
-int getBoardScoreAfterMove(PIECE board[], const Move& move, bool myTurn, int maxDepth);
-void printBoard(PIECE board[]);
+Move findBestMove(Board* board, bool myturn, int maxDepth, int* scoreAfterMove);
+int getBoardScoreAfterMove(Board* board, const Move& move, bool myTurn, int maxDepth);
+void printBoard(Board* board);
 
 inline bool isWithinBounds(int x, int y) {
     return x >= 0 && x < 8 && y >= 0 && y < 8;
 }
-inline bool isMyPiece(PIECE board[], int x, int y) {
-    return board[y * 8 + x] >= PIECE::PLAYER_PAWN && board[y * 8 + x] <= PIECE::PLAYER_KING;
+inline bool isMyPiece(Board* board, int x, int y) {
+    return board->board[y * 8 + x] >= PIECE::PLAYER_PAWN && board->board[y * 8 + x] <= PIECE::PLAYER_KING;
 }
-inline bool isOpponentPiece(PIECE board[], int x, int y) {
-    return board[y * 8 + x] >= PIECE::OPPONENT_PAWN && board[y * 8 + x] <= PIECE::OPPONENT_KING;
+inline bool isOpponentPiece(Board* board, int x, int y) {
+    return board->board[y * 8 + x] >= PIECE::OPPONENT_PAWN && board->board[y * 8 + x] <= PIECE::OPPONENT_KING;
 }
-inline bool isEmpty(PIECE board[], int x, int y) {
-    return board[y * 8 + x] == PIECE::NONE;
+inline bool isEmpty(Board* board, int x, int y) {
+    return board->board[y * 8 + x] == PIECE::NONE;
+}
+inline bool isTileUnderAttack(Board* board, int x, int y) {
+    return false;
 }
 
 int knightMovesX[]{ 1, 2, 2, 1,-1,-2,-2,-1 };
@@ -72,7 +92,7 @@ int bishopDirsY[]{ 1, 1, -1,-1 };
 int queenDirsX[]{ 1, 1, 1, 0,-1,-1,-1, 0 };  //also used for king
 int queenDirsY[]{ -1,0, 1, 1, 1, 0,-1,-1 };
 
-std::map<PIECE, char> pieceToChar {
+std::map<PIECE, char> pieceToChar{
     std::make_pair(PIECE::NONE, '_'),
     std::make_pair(PIECE::PLAYER_PAWN, 'P'),
     std::make_pair(PIECE::PLAYER_ROOK, 'R'),
