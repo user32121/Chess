@@ -11,31 +11,61 @@ namespace Chess5DGUI
     public enum PIECE : byte
     {
         NONE = 0,
-        WHITE_PAWN = 10,
-        WHITE_ROOK = 11,
-        WHITE_KNIGHT = 12,
-        WHITE_BISHOP = 13,
-        WHITE_QUEEN = 14,
-        WHITE_KING = 15,
-        BLACK_PAWN = 20,
-        BLACK_ROOK = 21,
-        BLACK_KNIGHT = 22,
-        BLACK_BISHOP = 23,
-        BLACK_QUEEN = 24,
-        BLACK_KING = 25,
+        WHITE_PIECE = 8,
+        WHITE_PAWN = 0 | WHITE_PIECE,
+        WHITE_ROOK = 1 | WHITE_PIECE,
+        WHITE_KNIGHT = 2 | WHITE_PIECE,
+        WHITE_BISHOP = 3 | WHITE_PIECE,
+        WHITE_QUEEN = 4 | WHITE_PIECE,
+        WHITE_KING = 5 | WHITE_PIECE,
+        BLACK_PIECE = 16,
+        BLACK_PAWN = 0 | BLACK_PIECE,
+        BLACK_ROOK = 1 | BLACK_PIECE,
+        BLACK_KNIGHT = 2 | BLACK_PIECE,
+        BLACK_BISHOP = 3 | BLACK_PIECE,
+        BLACK_QUEEN = 4 | BLACK_PIECE,
+        BLACK_KING = 5 | BLACK_PIECE,
+        COLOR_MASK = WHITE_PIECE | BLACK_PIECE,
     };
 
     public class Board
     {
         public List<List<PIECE[,]>> boards;
+        public int whitePawnStartY, blackPawnStartY;
+        public bool whiteCanCastleKingSide, whiteCanCastleQueenSide, blackCanCastleKingSide, blackCanCastleQueenSide;
+        public int enPassantOpportunity = -1;
+
+        public Board(List<List<PIECE[,]>> boards, int whitePawnStartY, int blackPawnStartY)
+        {
+            this.boards = boards;
+            this.whitePawnStartY = whitePawnStartY;
+            this.blackPawnStartY = blackPawnStartY;
+            whiteCanCastleKingSide = whiteCanCastleQueenSide = blackCanCastleKingSide = blackCanCastleQueenSide = true;
+        }
 
         public PIECE this[Point4 p]
         {
             get { return boards[p.c][p.t][p.x, p.y]; }
             set { boards[p.c][p.t][p.x, p.y] = value; }
         }
+        public PIECE this[int c, int t, int x, int y]
+        {
+            get
+            {
+                try
+                {
+                    return boards[c][t][x, y];
+                }
+                catch (Exception e)
+                {
+                    return PIECE.NONE;
+                    throw;
+                }
+            }
+            set { boards[c][t][x, y] = value; }
+        }
 
-        public static PIECE[,] getStartingBoard() => new PIECE[,]
+        public static Board getStartingBoard() => new(new(){ new(){ new PIECE[,]
         {
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
@@ -45,14 +75,14 @@ namespace Chess5DGUI
             { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
-        };
+        } } }, 1, 6);
     }
 
     public struct Point4 : IEquatable<Point4>
     {
         public int x, y, t, c;  //x,y,time,choice
 
-        public Point4(int x, int y, int t, int c)
+        public Point4(int c, int t, int x, int y)
         {
             this.x = x;
             this.y = y;
@@ -80,6 +110,15 @@ namespace Chess5DGUI
         {
             return (((17 * 23 + x.GetHashCode()) * 23 + y.GetHashCode()) * 23 + t.GetHashCode()) * 23 + c.GetHashCode();
         }
+
+        public static Point4 operator +(Point4 p1, Point4 p2)
+        {
+            return new(p1.c + p2.c, p1.t + p2.t, p1.x + p2.x, p1.y + p2.y);
+        }
+        public static Point4 operator *(Point4 p, int x)
+        {
+            return new(p.c * x, p.t * x, p.x * x, p.y * x);
+        }
     }
 
     public struct Move
@@ -95,13 +134,67 @@ namespace Chess5DGUI
 
     public static class Utils
     {
-        public static bool PerformMove(Board board, Move move, ref bool isWhiteTurn, ref Move prevMove, ref Vector2 viewOffset)
+        public static Dictionary<PIECE, Point> pieceTexIndex = new Dictionary<PIECE, Point>()
         {
-            if (move.from == move.to || move.from.t != board.boards[move.from.c].Count - 1)
-                return false;
-            if (IsWhitePiece(board[move.from]) ^ isWhiteTurn)
-                return false;
+            {PIECE.NONE,new Point(0,640)},
+            {PIECE.WHITE_KING,new Point(0,0)},
+            {PIECE.WHITE_QUEEN,new Point(320,0)},
+            {PIECE.WHITE_BISHOP,new Point(640,0)},
+            {PIECE.WHITE_KNIGHT,new Point(960,0)},
+            {PIECE.WHITE_ROOK,new Point(1280,0)},
+            {PIECE.WHITE_PAWN,new Point(1600,0)},
+            {PIECE.BLACK_KING,new Point(0,320)},
+            {PIECE.BLACK_QUEEN,new Point(320,320)},
+            {PIECE.BLACK_BISHOP,new Point(640,320)},
+            {PIECE.BLACK_KNIGHT,new Point(960,320)},
+            {PIECE.BLACK_ROOK,new Point(1280,320)},
+            {PIECE.BLACK_PAWN,new Point(1600,320)},
+        };
 
+        public static List<Point4> rookDirs = new();
+        public static List<Point4> bishopDirs = new();
+        public static List<Point4> queenDirs = new();
+        public static List<Point4> knightMoves = new();
+
+        static Utils()
+        {
+            //generate all moves/dirs so I don't have to type 81 combinations of c,t,x,y
+            for (int c = -1; c <= 1; c++)
+                for (int t = -2; t <= 2; t += 2)
+                    for (int x = -1; x <= 1; x++)
+                        for (int y = -1; y <= 1; y++)
+                        {
+                            int ac, at, ax, ay;
+                            ac = c != 0 ? 1 : 0;
+                            at = t != 0 ? 1 : 0;
+                            ax = x != 0 ? 1 : 0;
+                            ay = y != 0 ? 1 : 0;
+                            if (ac + at + ax + ay == 1)
+                                rookDirs.Add(new(c, t, x, y));
+                            else if (ac + at + ax + ay == 2)
+                            {
+                                bishopDirs.Add(new(c, t, x, y));
+                                int[] ar = new int[4] { c, t, x, y };
+                                int i1 = -1, i2 = -1;
+                                for (int i = 0; i < 4; i++)
+                                    if (ar[i] != 0)
+                                    {
+                                        i1 = i2;
+                                        i2 = i;
+                                    }
+                                ar[i1] *= 2;
+                                knightMoves.Add(new(ar[0], ar[1], ar[2], ar[3]));
+                                ar[i1] /= 2;
+                                ar[i2] *= 2;
+                                knightMoves.Add(new(ar[0], ar[1], ar[2], ar[3]));
+                            }
+                            if (ac + at + ax + ay > 0)
+                                queenDirs.Add(new(c, t, x, y));
+                        }
+        }
+
+        public static bool PerformMove(Board board, Move move, ref Move prevMove, ref Vector2 viewOffset)
+        {
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
@@ -112,7 +205,7 @@ namespace Chess5DGUI
             else if (move.to.t < move.from.t && move.from.c == move.to.c)
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
-                if (isWhiteTurn)
+                if (IsWhitePiece(board[move.from]))
                 {
                     List<PIECE[,]> newRow = new();
                     for (int i = 0; i < move.to.t + 1; i++)
@@ -138,20 +231,202 @@ namespace Chess5DGUI
             }
             board[move.to] = board[move.from];
             board[move.from] = PIECE.NONE;
-            isWhiteTurn = !isWhiteTurn;
 
             prevMove = move;
 
             return true;
         }
 
+        public static bool IsInBounds(Board b, Point4 p)
+        {
+            return p.x >= 0 && p.y >= 0 && p.c >= 0 && p.t >= 0 && p.x < 8 && p.y < 8 && p.c < b.boards.Count && p.t < b.boards[p.c].Count && b.boards[p.c][p.t] != null;
+        }
         public static bool IsWhitePiece(PIECE p)
         {
-            return p >= PIECE.WHITE_PAWN && p <= PIECE.WHITE_KING;
+            return p.HasFlag(PIECE.WHITE_PIECE);
         }
         public static bool IsBlackPiece(PIECE p)
         {
-            return p >= PIECE.BLACK_PAWN && p <= PIECE.BLACK_KING;
+            return p.HasFlag(PIECE.BLACK_PIECE);
+        }
+        public static bool IsFriendlyPiece(PIECE p1, PIECE p2)
+        {
+            return (p1 & PIECE.COLOR_MASK) == (p2 & PIECE.COLOR_MASK);
+        }
+        public static bool IsOpponentPiece(PIECE p1, PIECE p2)
+        {
+            return ((p1 ^ p2) & PIECE.COLOR_MASK) == PIECE.COLOR_MASK;
+        }
+
+        public static List<Move> GetAllMoves(Board board)
+        {
+            List<Move> res = new();
+
+            int maxTurn = board.boards.Max(timeline => timeline.Count);
+            int minTurn = board.boards.Min(timeline => timeline.Count);
+            bool isWhiteTurn = minTurn % 2 == 1;
+            for (int c = 0; c < board.boards.Count; c++)
+                if (board.boards[c].Count % 2 == 0 ^ isWhiteTurn)
+                {
+                    int t = board.boards[c].Count - 1;
+                    for (int x = 0; x < 8; x++)
+                        for (int y = 0; y < 8; y++)
+                        {
+                            Point4 pos = new(c, t, x, y);
+                            PIECE p = board[pos];
+                            if (isWhiteTurn ^ IsWhitePiece(p))  //cannot move opposite colored pieces on turn
+                                continue;
+                            switch (p)
+                            {
+                                case PIECE.NONE:
+                                    break;
+                                case PIECE.WHITE_PAWN:
+                                    {
+                                        //forward
+                                        if (y < 7 && board[c, t, x, y + 1] == PIECE.NONE)
+                                        {
+                                            //1 y
+                                            res.Add(new(pos, new(c, t, x, y + 1)));
+                                            if (y == board.whitePawnStartY && board[c, t, x, y + 2] == PIECE.NONE)
+                                                //2 y
+                                                res.Add(new(pos, new(c, t, x, y + 2)));
+
+                                            //capture x/y
+                                            if (x < 7 && IsBlackPiece(board[c, t, x + 1, y + 1]))
+                                                res.Add(new(pos, new(c, t, x + 1, y + 1)));
+                                            if (x > 0 && IsBlackPiece(board[c, t, x - 1, y + 1]))
+                                                res.Add(new(pos, new(c, t, x - 1, y + 1)));
+                                        }
+                                        if (c < board.boards.Count - 1 && t < board.boards[c + 1].Count && board[c + 1, t, x, y] == PIECE.NONE)
+                                        {
+                                            //1 c
+                                            res.Add(new(pos, new(c + 1, t, x, y)));
+
+                                            //capture c/t
+                                            if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c + 1, t + 1, x, y]))
+                                                res.Add(new(pos, new(c + 1, t + 1, x, y)));
+                                            if (t > 0 && IsBlackPiece(board[c + 1, t - 1, x, y]))
+                                                res.Add(new(pos, new(c + 1, t - 1, x, y)));
+                                        }
+                                        break;
+                                    }
+                                case PIECE.BLACK_PAWN:
+                                    {
+                                        //forward
+                                        if (y > 0 && board[c, t, x, y - 1] == PIECE.NONE)
+                                        {
+                                            //1 y
+                                            res.Add(new(pos, new(c, t, x, y - 1)));
+                                            if (y == board.blackPawnStartY && board[c, t, x, y - 2] == PIECE.NONE)
+                                                //2 y
+                                                res.Add(new(pos, new(c, t, x, y - 2)));
+
+                                            //capture x/y
+                                            if (x < 7 && IsWhitePiece(board[c, t, x + 1, y - 1]))
+                                                res.Add(new(pos, new(c, t, x + 1, y - 1)));
+                                            if (x > 0 && IsWhitePiece(board[c, t, x - 1, y - 1]))
+                                                res.Add(new(pos, new(c, t, x - 1, y - 1)));
+                                        }
+                                        if (c > 0 && t < board.boards[c - 1].Count && board[c - 1, t, x, y] == PIECE.NONE)
+                                        {
+                                            //1 c
+                                            res.Add(new(pos, new(c - 1, t, x, y)));
+
+                                            //capture c/t
+                                            if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c - 1, t + 1, x, y]))
+                                                res.Add(new(pos, new(c - 1, t + 1, x, y)));
+                                            if (t > 0 && IsWhitePiece(board[c - 1, t - 1, x, y]))
+                                                res.Add(new(pos, new(c - 1, t - 1, x, y)));
+                                        }
+                                        break;
+                                    }
+                                case PIECE.WHITE_ROOK:
+                                case PIECE.BLACK_ROOK:
+                                    foreach (Point4 item in rookDirs)
+                                    {
+                                        for (int i = 1; i < 8; i++)
+                                        {
+                                            Point4 pos2 = pos + item * i;
+                                            if (!IsInBounds(board, pos2))
+                                                break;
+                                            PIECE p2 = board[pos2];
+                                            if (IsFriendlyPiece(p, p2))
+                                                break;
+                                            res.Add(new(pos, pos + item * i));
+                                            if (IsOpponentPiece(p, p2))
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                case PIECE.WHITE_KNIGHT:
+                                case PIECE.BLACK_KNIGHT:
+                                    foreach (Point4 item in knightMoves)
+                                    {
+                                        Point4 pos2 = pos + item;
+                                        if (!IsInBounds(board, pos2))
+                                            continue;
+                                        PIECE p2 = board[pos2];
+                                        if (IsFriendlyPiece(p, p2))
+                                            continue;
+                                        res.Add(new(pos, pos + item));
+                                    }
+                                    break;
+                                case PIECE.WHITE_BISHOP:
+                                case PIECE.BLACK_BISHOP:
+                                    foreach (Point4 item in bishopDirs)
+                                    {
+                                        for (int i = 1; i < 8; i++)
+                                        {
+                                            Point4 pos2 = pos + item * i;
+                                            if (!IsInBounds(board, pos2))
+                                                break;
+                                            PIECE p2 = board[pos2];
+                                            if (IsFriendlyPiece(p, p2))
+                                                break;
+                                            res.Add(new(pos, pos + item * i));
+                                            if (IsOpponentPiece(p, p2))
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                case PIECE.WHITE_QUEEN:
+                                case PIECE.BLACK_QUEEN:
+                                    foreach (Point4 item in queenDirs)
+                                    {
+                                        for (int i = 1; i < 8; i++)
+                                        {
+                                            Point4 pos2 = pos + item * i;
+                                            if (!IsInBounds(board, pos2))
+                                                break;
+                                            PIECE p2 = board[pos2];
+                                            if (IsFriendlyPiece(p, p2))
+                                                break;
+                                            res.Add(new(pos, pos + item * i));
+                                            if (IsOpponentPiece(p, p2))
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                case PIECE.WHITE_KING:
+                                case PIECE.BLACK_KING:
+                                    foreach (Point4 item in queenDirs)
+                                    {
+                                        Point4 pos2 = pos + item;
+                                        if (!IsInBounds(board, pos2))
+                                            continue;
+                                        PIECE p2 = board[pos2];
+                                        if (IsFriendlyPiece(p, p2))
+                                            continue;
+                                        res.Add(new(pos, pos + item));
+                                    }
+                                    break;
+                                default:
+                                    throw new NotImplementedException();
+                            }
+                        }
+                }
+
+            return res;
         }
 
         public static Vector2 ScreenToWorldSpace(Vector2 p, Game g, Vector2 offset, float zoom)

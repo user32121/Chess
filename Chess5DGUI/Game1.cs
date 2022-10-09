@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Chess5DGUI
 {
@@ -14,31 +15,15 @@ namespace Chess5DGUI
         private Texture2D blank;
         private Texture2D pieceTex;
         private Texture2D selectTex;
-        private Dictionary<PIECE, Point> pieceTexIndex = new Dictionary<PIECE, Point>()
-        {
-            {PIECE.NONE,new Point(0,640)},
-            {PIECE.WHITE_KING,new Point(0,0)},
-            {PIECE.WHITE_QUEEN,new Point(320,0)},
-            {PIECE.WHITE_BISHOP,new Point(640,0)},
-            {PIECE.WHITE_KNIGHT,new Point(960,0)},
-            {PIECE.WHITE_ROOK,new Point(1280,0)},
-            {PIECE.WHITE_PAWN,new Point(1600,0)},
-            {PIECE.BLACK_KING,new Point(0,320)},
-            {PIECE.BLACK_QUEEN,new Point(320,320)},
-            {PIECE.BLACK_BISHOP,new Point(640,320)},
-            {PIECE.BLACK_KNIGHT,new Point(960,320)},
-            {PIECE.BLACK_ROOK,new Point(1280,320)},
-            {PIECE.BLACK_PAWN,new Point(1600,320)},
-        };
         private const int pieceTexSize = 320;
         public const int pieceDrawSize = 64;
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private Board board = new();
-        private bool isWhiteTurn = true;
+        private Board board = Board.getStartingBoard();
         private Point4? selectedPos;
         private Move prevMove = new Move() { from = new() { x = -1 }, to = new() { x = -1 } };
+        private List<Move> availableMoves;
 
         private MouseState prevMS;
 
@@ -61,8 +46,6 @@ namespace Chess5DGUI
             _graphics.PreferredBackBufferHeight = 520;
             _graphics.ApplyChanges();
 
-            board.boards = new() { new() { (PIECE[,])Board.getStartingBoard() } };
-
             base.Initialize();
         }
 
@@ -82,25 +65,25 @@ namespace Chess5DGUI
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
+            availableMoves ??= Utils.GetAllMoves(board);
+
             MouseState ms = Mouse.GetState();
             if (ms.LeftButton == ButtonState.Pressed && prevMS.LeftButton == ButtonState.Released)
             {
                 Point clickPos = Utils.ScreenToWorldSpace(ms.Position.ToVector2(), this, viewOffset, zoom).ToPoint();
-                Point4 clickTile = new(clickPos.X / pieceDrawSize % 9, clickPos.Y / pieceDrawSize % 9, clickPos.X / pieceDrawSize / 9, clickPos.Y / pieceDrawSize / 9);
-                if (clickTile.x >= 0 && clickTile.x < 8 && clickTile.y >= 0 && clickTile.y < 8 &&
-                    clickTile.c >= 0 && clickTile.c < board.boards.Count &&
-                    clickTile.t >= 0 && clickTile.t < board.boards[clickTile.c].Count)
+                Point4 clickTile = new(clickPos.Y / pieceDrawSize / 9, clickPos.X / pieceDrawSize / 9, clickPos.X / pieceDrawSize % 9, clickPos.Y / pieceDrawSize % 9);
+                if (selectedPos.HasValue)
                 {
-                    if (selectedPos.HasValue)
+                    Move move = new Move(selectedPos.Value, clickTile);
+                    if (availableMoves.Contains(move))
                     {
-                        Utils.PerformMove(board, new Move(selectedPos.Value, clickTile), ref isWhiteTurn, ref prevMove, ref targetViewOffset);
-                        selectedPos = null;
+                        Utils.PerformMove(board, move, ref prevMove, ref targetViewOffset);
+                        availableMoves = null;
                     }
-                    else if (board[clickTile] != PIECE.NONE)
-                        selectedPos = clickTile;
-                    else
-                        selectedPos = null;
+                    selectedPos = null;
                 }
+                else if (availableMoves.Any(m => m.from == clickTile))
+                    selectedPos = clickTile;
                 else
                     selectedPos = null;
             }
@@ -157,16 +140,33 @@ namespace Chess5DGUI
                             for (int y = 0; y < 8; y++)
                             {
                                 Point drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
-                                Point spriteTexPos = pieceTexIndex[board[new Point4(x, y, t, c)]];
+                                Point spriteTexPos = Utils.pieceTexIndex[board[c, t, x, y]];
 
+                                //checkerboard
                                 _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), (x + y) % 2 == 0 ? Color.RosyBrown : Color.Tan);
 
-                                if (prevMove.from == new Point4(x, y, t, c) || prevMove.to == new Point4(x, y, t, c))
-                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightGreen * 0.5f);
+                                //previous move
+                                if (prevMove.from == new Point4(c, t, x, y) || prevMove.to == new Point4(c, t, x, y))
+                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.Yellow * 0.5f);
 
+                                //available moves
+                                if (availableMoves != null)
+                                    if (selectedPos.HasValue)
+                                    {
+                                        if (availableMoves.Contains(new(selectedPos.Value, new(c, t, x, y))))
+                                            _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightGreen * 0.5f);
+                                    }
+                                    else
+                                    {
+                                        if (availableMoves.Any(m => m.from == new Point4(c, t, x, y)))
+                                            _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightGreen * 0.5f);
+                                    }
+
+                                //current piece
                                 _spriteBatch.Draw(pieceTex, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), new Rectangle(spriteTexPos, new Point(pieceTexSize, pieceTexSize)), Color.White);
 
-                                if (selectedPos == new Point4(x, y, t, c))
+                                //selected piece
+                                if (selectedPos == new Point4(c, t, x, y))
                                     _spriteBatch.Draw(selectTex, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.White);
                             }
                         }
