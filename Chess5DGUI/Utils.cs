@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -38,8 +40,8 @@ namespace Chess5DGUI
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
             { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
-            { PIECE.WHITE_QUEEN, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_QUEEN },
             { PIECE.WHITE_KING, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KING },
+            { PIECE.WHITE_QUEEN, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_QUEEN },
             { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
@@ -93,9 +95,11 @@ namespace Chess5DGUI
 
     public static class Utils
     {
-        public static bool PerformMove(Board board, Move move)
+        public static bool PerformMove(Board board, Move move, ref bool isWhiteTurn, ref Move prevMove, ref Vector2 viewOffset)
         {
             if (move.from == move.to || move.from.t != board.boards[move.from.c].Count - 1)
+                return false;
+            if (IsWhitePiece(board[move.from]) ^ isWhiteTurn)
                 return false;
 
             if (move.from.t == move.to.t && move.from.c == move.to.c)
@@ -103,11 +107,60 @@ namespace Chess5DGUI
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
                 move.from.t++;
                 move.to.t++;
+                viewOffset.X += 9 * Game1.pieceDrawSize;
+            }
+            else if (move.to.t < move.from.t && move.from.c == move.to.c)
+            {
+                board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
+                if (isWhiteTurn)
+                {
+                    List<PIECE[,]> newRow = new();
+                    for (int i = 0; i < move.to.t + 1; i++)
+                        newRow.Add(null);
+                    newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                    board.boards.Insert(0, newRow);
+                    move.from.c++;
+                    move.to.c = 0;
+                    move.to.t++;
+                    viewOffset.Y -= 9 * Game1.pieceDrawSize;
+                }
+                else
+                {
+                    List<PIECE[,]> newRow = new();
+                    for (int i = 0; i < move.to.t + 1; i++)
+                        newRow.Add(null);
+                    newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                    board.boards.Add(newRow);
+                    move.to.c = board.boards.Count - 1;
+                    move.to.t++;
+                    viewOffset.Y += 9 * Game1.pieceDrawSize;
+                }
             }
             board[move.to] = board[move.from];
             board[move.from] = PIECE.NONE;
+            isWhiteTurn = !isWhiteTurn;
+
+            prevMove = move;
 
             return true;
+        }
+
+        public static bool IsWhitePiece(PIECE p)
+        {
+            return p >= PIECE.WHITE_PAWN && p <= PIECE.WHITE_KING;
+        }
+        public static bool IsBlackPiece(PIECE p)
+        {
+            return p >= PIECE.BLACK_PAWN && p <= PIECE.BLACK_KING;
+        }
+
+        public static Vector2 ScreenToWorldSpace(Vector2 p, Game g, Vector2 offset, float zoom)
+        {
+            p -= g.GraphicsDevice.Viewport.Bounds.Size.ToVector2() / 2;
+            p /= zoom;
+            p += g.GraphicsDevice.Viewport.Bounds.Size.ToVector2() / 2;
+            p += offset;
+            return p;
         }
     }
 }

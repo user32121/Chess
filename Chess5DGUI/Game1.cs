@@ -31,8 +31,9 @@ namespace Chess5DGUI
             {PIECE.BLACK_PAWN,new Point(1600,320)},
         };
         private const int pieceTexSize = 320;
-        private const int pieceDrawSize = 64;
+        public const int pieceDrawSize = 64;
         private SpriteFont font;
+        private const float colorBorderWidth = 0.3f;
 
         private Board board = new();
         private bool isWhiteTurn = true;
@@ -40,6 +41,13 @@ namespace Chess5DGUI
         private Move prevMove = new Move() { from = new() { x = -1 }, to = new() { x = -1 } };
 
         private MouseState prevMS;
+
+        private Vector2 targetViewOffset, viewOffset;
+        private const float offsetSmoothingFactor = 0.9f;
+        private const int moveSpeed = 20;
+        private float targetZoomValue, zoomValue, zoom;
+        private const float zoomFactor = 0.999f;
+        private const float zoomSmoothingFactor = 0.9f;
 
         public Game1()
         {
@@ -53,8 +61,7 @@ namespace Chess5DGUI
             _graphics.PreferredBackBufferHeight = 520;
             _graphics.ApplyChanges();
 
-            board.boards = new() { new(), new(), new() };
-            board.boards[0].Add((PIECE[,])Board.getStartingBoard());
+            board.boards = new() { new() { (PIECE[,])Board.getStartingBoard() } };
 
             base.Initialize();
         }
@@ -78,18 +85,19 @@ namespace Chess5DGUI
             MouseState ms = Mouse.GetState();
             if (ms.LeftButton == ButtonState.Pressed && prevMS.LeftButton == ButtonState.Released)
             {
-                Point4 clickPos = new(ms.X / pieceDrawSize % 9, ms.Y / pieceDrawSize % 9, ms.X / pieceDrawSize / 9, ms.Y / pieceDrawSize / 9);
-                if (clickPos.x != 8 && clickPos.y != 8 &&
-                    clickPos.c >= 0 && clickPos.c < board.boards.Count &&
-                    clickPos.t >= 0 && clickPos.t < board.boards[clickPos.c].Count)
+                Point clickPos = Utils.ScreenToWorldSpace(ms.Position.ToVector2(), this, viewOffset, zoom).ToPoint();
+                Point4 clickTile = new(clickPos.X / pieceDrawSize % 9, clickPos.Y / pieceDrawSize % 9, clickPos.X / pieceDrawSize / 9, clickPos.Y / pieceDrawSize / 9);
+                if (clickTile.x >= 0 && clickTile.x < 8 && clickTile.y >= 0 && clickTile.y < 8 &&
+                    clickTile.c >= 0 && clickTile.c < board.boards.Count &&
+                    clickTile.t >= 0 && clickTile.t < board.boards[clickTile.c].Count)
                 {
                     if (selectedPos.HasValue)
                     {
-                        Utils.PerformMove(board, new Move(selectedPos.Value, clickPos));
+                        Utils.PerformMove(board, new Move(selectedPos.Value, clickTile), ref isWhiteTurn, ref prevMove, ref targetViewOffset);
                         selectedPos = null;
                     }
-                    else if (board[clickPos] != PIECE.NONE)
-                        selectedPos = clickPos;
+                    else if (board[clickTile] != PIECE.NONE)
+                        selectedPos = clickTile;
                     else
                         selectedPos = null;
                 }
@@ -100,7 +108,28 @@ namespace Chess5DGUI
             if (ms.RightButton == ButtonState.Pressed)
                 selectedPos = null;
 
+            if (ms.ScrollWheelValue != prevMS.ScrollWheelValue)
+                targetZoomValue += ms.ScrollWheelValue - prevMS.ScrollWheelValue;
+            zoomValue = zoomSmoothingFactor * zoomValue + (1 - zoomSmoothingFactor) * targetZoomValue;
+            zoom = MathF.Pow(zoomFactor, -zoomValue);
+
             prevMS = ms;
+
+            KeyboardState ks = Keyboard.GetState();
+            if (ks.IsKeyDown(Keys.W))
+                targetViewOffset.Y -= moveSpeed / zoom;
+            if (ks.IsKeyDown(Keys.S))
+                targetViewOffset.Y += moveSpeed / zoom;
+            if (ks.IsKeyDown(Keys.A))
+                targetViewOffset.X -= moveSpeed / zoom;
+            if (ks.IsKeyDown(Keys.D))
+                targetViewOffset.X += moveSpeed / zoom;
+            if (ks.IsKeyDown(Keys.Z))
+            {
+                targetViewOffset = Vector2.Zero;
+                targetZoomValue = 0;
+            }
+            viewOffset = viewOffset * offsetSmoothingFactor + targetViewOffset * (1 - offsetSmoothingFactor);
 
             base.Update(gameTime);
         }
@@ -109,26 +138,37 @@ namespace Chess5DGUI
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            _spriteBatch.Begin();
+            Matrix mat = Matrix.CreateTranslation(-viewOffset.X, -viewOffset.Y, 0);
+            mat *= Matrix.CreateTranslation(-GraphicsDevice.Viewport.Bounds.Width / 2, -GraphicsDevice.Viewport.Bounds.Height / 2, 0);
+            mat *= Matrix.CreateScale(zoom);
+            mat *= Matrix.CreateTranslation(GraphicsDevice.Viewport.Bounds.Width / 2, GraphicsDevice.Viewport.Bounds.Height / 2, 0);
+            _spriteBatch.Begin(transformMatrix: mat);
 
             for (int c = 0; c < board.boards.Count; c++)
                 for (int t = 0; t < board.boards[c].Count; t++)
-                    for (int x = 0; x < 8; x++)
+                    if (board.boards[c][t] != null)
                     {
-                        for (int y = 0; y < 8; y++)
+                        Point drawBoardPos = new(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
+                        int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
+                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, 8 * pieceDrawSize + borderPixelWidth * 2, 8 * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
+
+                        for (int x = 0; x < 8; x++)
                         {
-                            Point drawPos = new Point(x * pieceDrawSize + t * pieceDrawSize * 9, y * pieceDrawSize + c * pieceDrawSize * 9);
-                            Point spriteTexPos = pieceTexIndex[board[new Point4(x, y, t, c)]];
+                            for (int y = 0; y < 8; y++)
+                            {
+                                Point drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
+                                Point spriteTexPos = pieceTexIndex[board[new Point4(x, y, t, c)]];
 
-                            _spriteBatch.Draw(blank, new Rectangle(drawPos.X, drawPos.Y, pieceDrawSize, pieceDrawSize), (x + y) % 2 == 0 ? Color.RosyBrown : Color.Tan);
+                                _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), (x + y) % 2 == 0 ? Color.RosyBrown : Color.Tan);
 
-                            if (prevMove.from == new Point4(x, y, t, c) || prevMove.to == new Point4(x, y, t, c))
-                                _spriteBatch.Draw(blank, new Rectangle(drawPos.X, drawPos.Y, pieceDrawSize, pieceDrawSize), Color.LightGreen * 0.5f);
+                                if (prevMove.from == new Point4(x, y, t, c) || prevMove.to == new Point4(x, y, t, c))
+                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightGreen * 0.5f);
 
-                            _spriteBatch.Draw(pieceTex, new Rectangle(drawPos.X, drawPos.Y, pieceDrawSize, pieceDrawSize), new Rectangle(spriteTexPos, new Point(pieceTexSize, pieceTexSize)), Color.White);
+                                _spriteBatch.Draw(pieceTex, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), new Rectangle(spriteTexPos, new Point(pieceTexSize, pieceTexSize)), Color.White);
 
-                            if (selectedPos == new Point4(x, y, t, c))
-                                _spriteBatch.Draw(selectTex, new Rectangle(drawPos.X, drawPos.Y, pieceDrawSize, pieceDrawSize), Color.White);
+                                if (selectedPos == new Point4(x, y, t, c))
+                                    _spriteBatch.Draw(selectTex, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.White);
+                            }
                         }
                     }
 
