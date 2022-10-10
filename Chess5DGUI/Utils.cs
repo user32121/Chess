@@ -11,6 +11,7 @@ namespace Chess5DGUI
     public enum PIECE : byte
     {
         NONE = 0,
+        INVALID = 1,
         WHITE_PIECE = 8,
         WHITE_PAWN = 0 | WHITE_PIECE,
         WHITE_ROOK = 1 | WHITE_PIECE,
@@ -45,7 +46,7 @@ namespace Chess5DGUI
 
         public PIECE this[Point4 p]
         {
-            get { return boards[p.c][p.t][p.x, p.y]; }
+            get { return boards[p.c][p.t]?[p.x, p.y] ?? PIECE.INVALID; }
             set { boards[p.c][p.t][p.x, p.y] = value; }
         }
         public PIECE this[int c, int t, int x, int y]
@@ -54,7 +55,7 @@ namespace Chess5DGUI
             {
                 try
                 {
-                    return boards[c][t][x, y];
+                    return boards[c][t]?[x, y] ?? PIECE.INVALID;
                 }
                 catch (Exception e)
                 {
@@ -193,16 +194,22 @@ namespace Chess5DGUI
                         }
         }
 
-        public static bool PerformMove(Board board, Move move, ref Move prevMove, ref Vector2 viewOffset)
+        public static bool PerformMove(Board board, Move move, ref Move prevMove, Action<float, float> setViewOffset)
         {
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
                 move.from.t++;
                 move.to.t++;
-                viewOffset.X += 9 * Game1.pieceDrawSize;
             }
-            else if (move.to.t < move.from.t && move.from.c == move.to.c)
+            else if (move.from.t == move.to.t && move.to.t == board.boards[move.to.c].Count - 1)
+            {
+                board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
+                board.boards[move.to.c].Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                move.from.t++;
+                move.to.t++;
+            }
+            else
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
                 if (IsWhitePiece(board[move.from]))
@@ -212,10 +219,10 @@ namespace Chess5DGUI
                         newRow.Add(null);
                     newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
                     board.boards.Insert(0, newRow);
+                    move.from.t++;
                     move.from.c++;
                     move.to.c = 0;
                     move.to.t++;
-                    viewOffset.Y -= 9 * Game1.pieceDrawSize;
                 }
                 else
                 {
@@ -224,15 +231,17 @@ namespace Chess5DGUI
                         newRow.Add(null);
                     newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
                     board.boards.Add(newRow);
+                    move.from.t++;
                     move.to.c = board.boards.Count - 1;
                     move.to.t++;
-                    viewOffset.Y += 9 * Game1.pieceDrawSize;
                 }
             }
             board[move.to] = board[move.from];
             board[move.from] = PIECE.NONE;
 
             prevMove = move;
+
+            setViewOffset(move.to.c, move.to.t);
 
             return true;
         }
@@ -274,7 +283,7 @@ namespace Chess5DGUI
                         {
                             Point4 pos = new(c, t, x, y);
                             PIECE p = board[pos];
-                            if (isWhiteTurn ^ IsWhitePiece(p))  //cannot move opposite colored pieces on turn
+                            if ((board.boards[c].Count % 2 == 1) ^ IsWhitePiece(p))  //cannot move opposite colored pieces on turn
                                 continue;
                             switch (p)
                             {
@@ -431,9 +440,9 @@ namespace Chess5DGUI
 
         public static Vector2 ScreenToWorldSpace(Vector2 p, Game g, Vector2 offset, float zoom)
         {
-            p -= g.GraphicsDevice.Viewport.Bounds.Size.ToVector2() / 2;
+            p += new Vector2(-g.GraphicsDevice.Viewport.Bounds.Width / 2, -g.GraphicsDevice.Viewport.Bounds.Height / 2);
             p /= zoom;
-            p += g.GraphicsDevice.Viewport.Bounds.Size.ToVector2() / 2;
+            p += new Vector2(g.GraphicsDevice.Viewport.Bounds.Width / 2, g.GraphicsDevice.Viewport.Bounds.Height / 2);
             p += offset;
             return p;
         }

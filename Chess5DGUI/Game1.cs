@@ -28,9 +28,10 @@ namespace Chess5DGUI
         private MouseState prevMS;
 
         private Vector2 targetViewOffset, viewOffset;
-        private const float offsetSmoothingFactor = 0.9f;
+        private const float offsetSmoothingFactor = 0.92f;
         private const int moveSpeed = 20;
-        private float targetZoomValue, zoomValue, zoom;
+        private float targetZoomValue = defaultZoomValue, zoomValue, zoom;
+        private const int defaultZoomValue = -400;
         private const float zoomFactor = 0.999f;
         private const float zoomSmoothingFactor = 0.9f;
 
@@ -45,6 +46,8 @@ namespace Chess5DGUI
         {
             _graphics.PreferredBackBufferHeight = 520;
             _graphics.ApplyChanges();
+
+            SetTargetViewOffset(0, 0);
 
             base.Initialize();
         }
@@ -77,7 +80,7 @@ namespace Chess5DGUI
                     Move move = new Move(selectedPos.Value, clickTile);
                     if (availableMoves.Contains(move))
                     {
-                        Utils.PerformMove(board, move, ref prevMove, ref targetViewOffset);
+                        Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
                         availableMoves = null;
                     }
                     selectedPos = null;
@@ -109,8 +112,8 @@ namespace Chess5DGUI
                 targetViewOffset.X += moveSpeed / zoom;
             if (ks.IsKeyDown(Keys.Z))
             {
-                targetViewOffset = Vector2.Zero;
-                targetZoomValue = 0;
+                SetTargetViewOffset((board.boards.Count - 1) / 2f, board.boards.Max(b => b.Count) - 1);
+                targetZoomValue = defaultZoomValue;
             }
             viewOffset = viewOffset * offsetSmoothingFactor + targetViewOffset * (1 - offsetSmoothingFactor);
 
@@ -127,11 +130,17 @@ namespace Chess5DGUI
             mat *= Matrix.CreateTranslation(GraphicsDevice.Viewport.Bounds.Width / 2, GraphicsDevice.Viewport.Bounds.Height / 2, 0);
             _spriteBatch.Begin(transformMatrix: mat);
 
+            Point viewWorldPos = Utils.ScreenToWorldSpace(new Vector2(0, 0), this, viewOffset, zoom).ToPoint();
+            Rectangle viewWorldRect = new(viewWorldPos, Utils.ScreenToWorldSpace(GraphicsDevice.Viewport.Bounds.Size.ToVector2(), this, viewOffset, zoom).ToPoint() - viewWorldPos);
+
             for (int c = 0; c < board.boards.Count; c++)
                 for (int t = 0; t < board.boards[c].Count; t++)
                     if (board.boards[c][t] != null)
                     {
                         Point drawBoardPos = new(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
+                        Rectangle drawBoardRect = new Rectangle(drawBoardPos, new Point(pieceDrawSize * 9));
+                        if (!viewWorldRect.Intersects(drawBoardRect))
+                            continue;
                         int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
                         _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, 8 * pieceDrawSize + borderPixelWidth * 2, 8 * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
 
@@ -175,6 +184,11 @@ namespace Chess5DGUI
             _spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        private void SetTargetViewOffset(float c, float t)
+        {
+            targetViewOffset = new Vector2(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
         }
     }
 }
