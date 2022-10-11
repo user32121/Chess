@@ -15,13 +15,13 @@ namespace Chess5DGUI
 
             if (optimizingWhite)
             {
-                float bestScore = int.MinValue;
+                float bestScore = float.MinValue;
                 int bestMoveIndex = -1;
                 for (int i = 0; i < moves.Count; i++)
                 {
                     if (moves[i].from.t % 2 == 0)
                     {
-                        float score = Math.Max(GetScoreAfterMove(board, moves[i], true, maxDepth, ref earlyExit), GetScoreAfterMove(board, moves[i], false, maxDepth, ref earlyExit));
+                        float score = GetScoreAfterMove(board, moves[i], maxDepth, ref earlyExit);
                         if (score > bestScore)
                         {
                             bestScore = score;
@@ -35,13 +35,13 @@ namespace Chess5DGUI
             }
             else
             {
-                float bestScore = int.MaxValue;
+                float bestScore = float.MaxValue;
                 int bestMoveIndex = -1;
                 for (int i = 0; i < moves.Count; i++)
                 {
                     if (moves[i].from.t % 2 == 1)
                     {
-                        float score = Math.Min(GetScoreAfterMove(board, moves[i], true, maxDepth, ref earlyExit), GetScoreAfterMove(board, moves[i], false, maxDepth, ref earlyExit));
+                        float score = GetScoreAfterMove(board, moves[i], maxDepth, ref earlyExit);
                         if (score < bestScore)
                         {
                             bestScore = score;
@@ -55,7 +55,7 @@ namespace Chess5DGUI
             }
         }
 
-        private static float GetScoreAfterMove(GameBoard board, Move move, bool optimizingWhite, int maxDepth, ref bool earlyExit)
+        private static float GetScoreAfterMove(GameBoard board, Move move, int maxDepth, ref bool earlyExit)
         {
             if (board[move.to] == PIECE.WHITE_KING || board[move.to] == PIECE.BLACK_KING)
                 return -Utils.pieceToPointValue[board[move.to]];
@@ -106,7 +106,8 @@ namespace Chess5DGUI
             board[move.to] = board[move.from];
             board[move.from] = PIECE.NONE;
 
-            float score = GetScore(board, optimizingWhite, maxDepth - 1, ref earlyExit);
+            int minTurn = board.boards.Min(timeline => timeline.Count);
+            float score = GetScore(board, minTurn % 2 == 1, maxDepth - 1, ref earlyExit);
 
             board.boards[move.from.c].RemoveAt(move.from.t);
             if (move.from.c != move.to.c || move.from.t != move.to.t)

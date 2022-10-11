@@ -37,7 +37,7 @@ namespace Chess5DGUI
         private const float zoomSmoothingFactor = 0.9f;
 
         private Thread algoThread;
-        private List<string> algoEval = new();
+        private readonly List<(float, Move)> algoEval = new();
         private bool resetAlgoEval = true;
         private bool stopAlgo = false;
 
@@ -50,7 +50,7 @@ namespace Chess5DGUI
 
         protected override void Initialize()
         {
-            this.Window.Title = "5D Chess";
+            Window.Title = "5D Chess";
 
             _graphics.PreferredBackBufferHeight = 520;
             _graphics.ApplyChanges();
@@ -78,32 +78,36 @@ namespace Chess5DGUI
         {
             Game1 game1 = (Game1)game1Obj;
             GameBoard workingBoard = null;
+            int depth = 0;
 
             while (!stopAlgo)
             {
                 if (resetAlgoEval)
                 {
                     resetAlgoEval = false;
+                    depth = 0;
                     lock (algoEval)
                         algoEval.Clear();
                     workingBoard = new GameBoard(board.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList(), board.whitePawnStartY, board.blackPawnStartY);
                 }
-                int depth;
-                lock (algoEval)
-                    depth = algoEval.Count;
                 int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
-                (Move move, float score) = Algorithm.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
-                string text = string.Format("{0}: {1:f} ({2})", depth, score, move);
+                Move move;
+                float score;
+                if (depth == 0)
+                {
+                    move = Move.Invalid;
+                    score = Algorithm.GetScore(workingBoard, minTurn % 2 == 1, 0, ref resetAlgoEval);
+                }
+                else
+                    (move, score) = Algorithm.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
                 lock (algoEval)
-                    algoEval.Add(text);
+                    algoEval.Add((score, move));
+                depth++;
             }
         }
 
         protected override void Update(GameTime gameTime)
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
-
             availableMoves ??= Utils.GetAllMoves(board);
 
             MouseState ms = Mouse.GetState();
@@ -113,7 +117,7 @@ namespace Chess5DGUI
                 Point4 clickTile = new(clickPos.Y / pieceDrawSize / 9, clickPos.X / pieceDrawSize / 9, clickPos.X / pieceDrawSize % 9, clickPos.Y / pieceDrawSize % 9);
                 if (selectedPos.HasValue)
                 {
-                    Move move = new Move(selectedPos.Value, clickTile);
+                    Move move = new(selectedPos.Value, clickTile);
                     if (availableMoves.Contains(move))
                     {
                         Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
@@ -175,7 +179,7 @@ namespace Chess5DGUI
                     if (board.boards[c][t] != null)
                     {
                         Point drawBoardPos = new(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
-                        Rectangle drawBoardRect = new Rectangle(drawBoardPos, new Point(pieceDrawSize * 9));
+                        Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * 9));
                         if (!viewWorldRect.Intersects(drawBoardRect))
                             continue;
                         int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
@@ -195,8 +199,12 @@ namespace Chess5DGUI
                                 if (prevMove.from == new Point4(c, t, x, y) || prevMove.to == new Point4(c, t, x, y))
                                     _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.Yellow * 0.5f);
 
-                                //available moves
-                                if (availableMoves != null)
+                                //suggested move
+                                (_, Move suggestedMove) = algoEval.LastOrDefault((0, Move.Invalid));
+                                if (suggestedMove.from == new Point4(c, t, x, y) || suggestedMove.to == new Point4(c, t, x, y))
+                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightBlue * 0.5f);
+                                else if (availableMoves != null)
+                                    //available moves
                                     if (selectedPos.HasValue)
                                     {
                                         if (availableMoves.Contains(new(selectedPos.Value, new(c, t, x, y))))
@@ -222,12 +230,18 @@ namespace Chess5DGUI
 
             //UI
             _spriteBatch.Begin();
-            Vector2 drawPos = new Vector2(10);
+            Vector2 drawPos = new(10);
             lock (algoEval)
             {
-                foreach (string eval in algoEval)
+                for (int i = 0; i < algoEval.Count; i++)
                 {
-                    _spriteBatch.DrawString(font, eval, drawPos, Color.Black);
+                    (float score, Move move) = algoEval[i];
+                    string text;
+                    if (move.from != Move.Invalid.from)
+                        text = string.Format("{0}: {1:f} ({2})", i, score, move);
+                    else
+                        text = string.Format("{0}: {1:f}", i, score);
+                    _spriteBatch.DrawString(font, text, drawPos, Color.Black);
                     drawPos.Y += font.LineSpacing;
                 }
             }
