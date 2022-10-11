@@ -93,7 +93,14 @@ namespace Chess5DGUI
                     depth = 0;
                     lock (algoEval)
                         algoEval.Clear();
-                    workingBoard = new GameBoard(board.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList(), board.whitePawnStartY, board.blackPawnStartY);
+                    workingBoard = new GameBoard(board.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList(), board.whitePawnStartY, board.blackPawnStartY)
+                    {
+                        blackCanCastleQueenSide = board.blackCanCastleQueenSide,
+                        blackCanCastleKingSide = board.blackCanCastleKingSide,
+                        whiteCanCastleQueenSide = board.whiteCanCastleQueenSide,
+                        whiteCanCastleKingSide = board.whiteCanCastleKingSide,
+                        timelinesByWhite = board.timelinesByWhite,
+                    };
                 }
                 int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
                 Move move;
@@ -220,7 +227,7 @@ namespace Chess5DGUI
                                 //suggested move
                                 (_, Move suggestedMove) = algoEval.LastOrDefault((0, Move.Invalid));
                                 if (suggestedMove.from == new Point4(c, t, x, y) || suggestedMove.to == new Point4(c, t, x, y))
-                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightBlue * 0.5f);
+                                    _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightBlue * 1f);
                                 else if (availableMoves != null)
                                     //available moves
                                     if (selectedPos.HasValue)

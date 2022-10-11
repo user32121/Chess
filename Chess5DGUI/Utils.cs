@@ -33,6 +33,7 @@ namespace Chess5DGUI
     {
         public List<List<PIECE[,]>> boards;
         public int whitePawnStartY, blackPawnStartY;
+        public int timelinesByWhite = 0;
         public bool whiteCanCastleKingSide, whiteCanCastleQueenSide, blackCanCastleKingSide, blackCanCastleQueenSide;
         public int enPassantOpportunity = -1;
 
@@ -225,7 +226,7 @@ namespace Chess5DGUI
                 move.from.t++;
                 move.to.t++;
             }
-            else if (move.from.t == move.to.t && move.to.t == board.boards[move.to.c].Count - 1)
+            else if (move.to.t == board.boards[move.to.c].Count - 1)
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
                 board.boards[move.to.c].Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
@@ -246,6 +247,7 @@ namespace Chess5DGUI
                     move.from.c++;
                     move.to.c = 0;
                     move.to.t++;
+                    board.timelinesByWhite++;
                 }
                 else
                 {
@@ -257,6 +259,7 @@ namespace Chess5DGUI
                     move.from.t++;
                     move.to.c = board.boards.Count - 1;
                     move.to.t++;
+                    board.timelinesByWhite--;
                 }
             }
             board[move.to] = board[move.from];
@@ -305,6 +308,7 @@ namespace Chess5DGUI
                             PIECE p = board[pos];
                             if ((board.boards[c].Count % 2 == 1) ^ IsWhitePiece(p))  //cannot move opposite colored pieces on turn
                                 continue;
+                            int colorMultiplier = IsWhitePiece(p) ? 1 : -1;
                             switch (p)
                             {
                                 case PIECE.NONE:
@@ -331,12 +335,13 @@ namespace Chess5DGUI
                                         if (c < board.boards.Count - 1 && t < board.boards[c + 1].Count && board[c + 1, t, x, y] == PIECE.NONE)
                                         {
                                             //1 c
-                                            res.Add((0, new(pos, new(c + 1, t, x, y))));
+                                            if (t == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1)
+                                                res.Add((0, new(pos, new(c + 1, t, x, y))));
 
                                             //capture c/t
-                                            if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c + 1, t + 1, x, y]))
+                                            if (t + 1 < board.boards[c + 1].Count - 1 && (t + 1 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(board[c + 1, t + 1, x, y]))
                                                 res.Add((pieceToPointValue[board[c + 1, t + 1, x, y]], new(pos, new(c + 1, t + 1, x, y))));
-                                            if (t > 0 && IsBlackPiece(board[c + 1, t - 1, x, y]))
+                                            if (t > 0 && (t - 1 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(board[c + 1, t - 1, x, y]))
                                                 res.Add((pieceToPointValue[board[c + 1, t - 1, x, y]], new(pos, new(c + 1, t - 1, x, y))));
                                         }
                                         break;
@@ -363,12 +368,13 @@ namespace Chess5DGUI
                                         if (c > 0 && t < board.boards[c - 1].Count && board[c - 1, t, x, y] == PIECE.NONE)
                                         {
                                             //1 c
-                                            res.Add((0, new(pos, new(c - 1, t, x, y))));
+                                            if (t == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1)
+                                                res.Add((0, new(pos, new(c - 1, t, x, y))));
 
                                             //capture c/t
-                                            if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c - 1, t + 1, x, y]))
+                                            if (t < board.boards[c].Count - 1 && (t + 1 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsBlackPiece(board[c - 1, t + 1, x, y]))
                                                 res.Add((pieceToPointValue[board[c - 1, t + 1, x, y]], new(pos, new(c - 1, t + 1, x, y))));
-                                            if (t > 0 && IsWhitePiece(board[c - 1, t - 1, x, y]))
+                                            if (t > 0 && (t - 1 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsWhitePiece(board[c - 1, t - 1, x, y]))
                                                 res.Add((pieceToPointValue[board[c - 1, t - 1, x, y]], new(pos, new(c - 1, t - 1, x, y))));
                                         }
                                         break;
@@ -380,7 +386,7 @@ namespace Chess5DGUI
                                         for (int i = 1; i < 8; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2))
+                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
                                                 break;
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
@@ -396,7 +402,7 @@ namespace Chess5DGUI
                                     foreach (Point4 item in knightMoves)
                                     {
                                         Point4 pos2 = pos + item;
-                                        if (!IsInBounds(board, pos2))
+                                        if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
                                             continue;
                                         PIECE p2 = board[pos2];
                                         if (IsFriendlyPiece(p, p2))
@@ -411,7 +417,7 @@ namespace Chess5DGUI
                                         for (int i = 1; i < 8; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2))
+                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
                                                 break;
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
@@ -429,7 +435,7 @@ namespace Chess5DGUI
                                         for (int i = 1; i < 8; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2))
+                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
                                                 break;
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
@@ -445,7 +451,7 @@ namespace Chess5DGUI
                                     foreach (Point4 item in queenDirs)
                                     {
                                         Point4 pos2 = pos + item;
-                                        if (!IsInBounds(board, pos2))
+                                        if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
                                             continue;
                                         PIECE p2 = board[pos2];
                                         if (IsFriendlyPiece(p, p2))

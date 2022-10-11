@@ -71,7 +71,7 @@ namespace Chess5DGUI
                 move.from.t++;
                 move.to.t++;
             }
-            else if (move.from.t == move.to.t && move.to.t == board.boards[move.to.c].Count - 1)
+            else if (move.to.t == board.boards[move.to.c].Count - 1)
             {
                 board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
                 board.boards[move.to.c].Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
@@ -92,6 +92,7 @@ namespace Chess5DGUI
                     move.from.c++;
                     move.to.c = 0;
                     move.to.t++;
+                    board.timelinesByWhite++;
                     removeNewRow = true;
                 }
                 else
@@ -104,6 +105,7 @@ namespace Chess5DGUI
                     move.from.t++;
                     move.to.c = board.boards.Count - 1;
                     move.to.t++;
+                    board.timelinesByWhite--;
                     removeNewRow = true;
                 }
             }
@@ -117,7 +119,13 @@ namespace Chess5DGUI
             if (move.from.c != move.to.c || move.from.t != move.to.t)
                 board.boards[move.to.c].RemoveAt(move.to.t);
             if (removeNewRow)
+            {
                 board.boards.RemoveAt(move.to.c);
+                if (move.to.c == 0)
+                    board.timelinesByWhite--;
+                else
+                    board.timelinesByWhite++;
+            }
 
             return score;
         }
