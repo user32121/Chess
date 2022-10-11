@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Chess5DGUI
 {
@@ -20,9 +21,9 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private Board board = Board.getStartingBoard();
+        private GameBoard board = GameBoard.getStartingBoard();
         private Point4? selectedPos;
-        private Move prevMove = new Move() { from = new() { x = -1 }, to = new() { x = -1 } };
+        private Move prevMove = Move.Invalid;
         private List<Move> availableMoves;
 
         private MouseState prevMS;
@@ -35,6 +36,11 @@ namespace Chess5DGUI
         private const float zoomFactor = 0.999f;
         private const float zoomSmoothingFactor = 0.9f;
 
+        private Thread algoThread;
+        private List<string> algoEval = new();
+        private bool resetAlgoEval = true;
+        private bool stopAlgo = false;
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -44,10 +50,15 @@ namespace Chess5DGUI
 
         protected override void Initialize()
         {
+            this.Window.Title = "5D Chess";
+
             _graphics.PreferredBackBufferHeight = 520;
             _graphics.ApplyChanges();
 
             SetTargetViewOffset(0, 0);
+
+            algoThread = new Thread(AlgoThreadFunction);
+            algoThread.Start(this);
 
             base.Initialize();
         }
@@ -61,6 +72,31 @@ namespace Chess5DGUI
             pieceTex = Content.Load<Texture2D>("pieces");
             selectTex = Content.Load<Texture2D>("selectBox");
             font = Content.Load<SpriteFont>("font");
+        }
+
+        private void AlgoThreadFunction(object game1Obj)
+        {
+            Game1 game1 = (Game1)game1Obj;
+            GameBoard workingBoard = null;
+
+            while (!stopAlgo)
+            {
+                if (resetAlgoEval)
+                {
+                    resetAlgoEval = false;
+                    lock (algoEval)
+                        algoEval.Clear();
+                    workingBoard = new GameBoard(board.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList(), board.whitePawnStartY, board.blackPawnStartY);
+                }
+                int depth;
+                lock (algoEval)
+                    depth = algoEval.Count;
+                int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
+                (Move move, float score) = Algorithm.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
+                string text = string.Format("{0}: {1:f} ({2})", depth, score, move);
+                lock (algoEval)
+                    algoEval.Add(text);
+            }
         }
 
         protected override void Update(GameTime gameTime)
@@ -81,6 +117,7 @@ namespace Chess5DGUI
                     if (availableMoves.Contains(move))
                     {
                         Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
+                        resetAlgoEval = true;
                         availableMoves = null;
                     }
                     selectedPos = null;
@@ -183,7 +220,28 @@ namespace Chess5DGUI
 
             _spriteBatch.End();
 
+            //UI
+            _spriteBatch.Begin();
+            Vector2 drawPos = new Vector2(10);
+            lock (algoEval)
+            {
+                foreach (string eval in algoEval)
+                {
+                    _spriteBatch.DrawString(font, eval, drawPos, Color.Black);
+                    drawPos.Y += font.LineSpacing;
+                }
+            }
+            _spriteBatch.End();
+
             base.Draw(gameTime);
+        }
+
+        protected override void OnExiting(object sender, EventArgs args)
+        {
+            resetAlgoEval = true;
+            stopAlgo = true;
+
+            base.OnExiting(sender, args);
         }
 
         private void SetTargetViewOffset(float c, float t)

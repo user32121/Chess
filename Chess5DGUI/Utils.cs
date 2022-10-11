@@ -29,14 +29,14 @@ namespace Chess5DGUI
         COLOR_MASK = WHITE_PIECE | BLACK_PIECE,
     };
 
-    public class Board
+    public class GameBoard
     {
         public List<List<PIECE[,]>> boards;
         public int whitePawnStartY, blackPawnStartY;
         public bool whiteCanCastleKingSide, whiteCanCastleQueenSide, blackCanCastleKingSide, blackCanCastleQueenSide;
         public int enPassantOpportunity = -1;
 
-        public Board(List<List<PIECE[,]>> boards, int whitePawnStartY, int blackPawnStartY)
+        public GameBoard(List<List<PIECE[,]>> boards, int whitePawnStartY, int blackPawnStartY)
         {
             this.boards = boards;
             this.whitePawnStartY = whitePawnStartY;
@@ -66,7 +66,7 @@ namespace Chess5DGUI
             set { boards[c][t][x, y] = value; }
         }
 
-        public static Board getStartingBoard() => new(new(){ new(){ new PIECE[,]
+        public static GameBoard getStartingBoard() => new(new(){ new(){ new PIECE[,]
         {
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
@@ -131,6 +131,13 @@ namespace Chess5DGUI
             this.from = from;
             this.to = to;
         }
+
+        public static Move Invalid = new(new(-1, -1, -1, -1), new(-1, -1, -1, -1));
+
+        public override string ToString()
+        {
+            return String.Format("{0},{1},{2},{3}->{4},{5},{6},{7}", from.c, from.t, from.x, from.y, to.c, to.t, to.x, to.y);
+        }
     }
 
     public static class Utils
@@ -150,6 +157,22 @@ namespace Chess5DGUI
             {PIECE.BLACK_KNIGHT,new Point(960,320)},
             {PIECE.BLACK_ROOK,new Point(1280,320)},
             {PIECE.BLACK_PAWN,new Point(1600,320)},
+        };
+        public static Dictionary<PIECE, int> pieceToPointValue = new Dictionary<PIECE, int>()
+        {
+            { PIECE.NONE, 0 },
+            { PIECE.WHITE_PAWN, 1 },
+            { PIECE.WHITE_KNIGHT, 3 },
+            { PIECE.WHITE_BISHOP, 3 },
+            { PIECE.WHITE_ROOK, 5 },
+            { PIECE.WHITE_QUEEN, 9 },
+            { PIECE.WHITE_KING, 1000 },
+            { PIECE.BLACK_PAWN, -1 },
+            { PIECE.BLACK_KNIGHT, -3 },
+            { PIECE.BLACK_BISHOP, -3 },
+            { PIECE.BLACK_ROOK, -5 },
+            { PIECE.BLACK_QUEEN, -9 },
+            { PIECE.BLACK_KING, -1000 },
         };
 
         public static List<Point4> rookDirs = new();
@@ -194,7 +217,7 @@ namespace Chess5DGUI
                         }
         }
 
-        public static bool PerformMove(Board board, Move move, ref Move prevMove, Action<float, float> setViewOffset)
+        public static void PerformMove(GameBoard board, Move move, ref Move prevMove, Action<float, float> setViewOffset)
         {
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
@@ -242,11 +265,9 @@ namespace Chess5DGUI
             prevMove = move;
 
             setViewOffset(move.to.c, move.to.t);
-
-            return true;
         }
 
-        public static bool IsInBounds(Board b, Point4 p)
+        public static bool IsInBounds(GameBoard b, Point4 p)
         {
             return p.x >= 0 && p.y >= 0 && p.c >= 0 && p.t >= 0 && p.x < 8 && p.y < 8 && p.c < b.boards.Count && p.t < b.boards[p.c].Count && b.boards[p.c][p.t] != null;
         }
@@ -267,11 +288,10 @@ namespace Chess5DGUI
             return ((p1 ^ p2) & PIECE.COLOR_MASK) == PIECE.COLOR_MASK;
         }
 
-        public static List<Move> GetAllMoves(Board board)
+        public static List<Move> GetAllMoves(GameBoard board)
         {
             List<Move> res = new();
 
-            int maxTurn = board.boards.Max(timeline => timeline.Count);
             int minTurn = board.boards.Min(timeline => timeline.Count);
             bool isWhiteTurn = minTurn % 2 == 1;
             for (int c = 0; c < board.boards.Count; c++)
