@@ -7,55 +7,59 @@ using System.Threading.Tasks;
 
 namespace Chess5DGUI
 {
-    internal class Algorithm
+    internal class Algorithm2
     {
         public static (Move, float) GetBestMove(GameBoard board, bool optimizingWhite, int maxDepth, ref bool earlyExit)
+        {
+            return AlphaBeta(board, optimizingWhite, maxDepth, float.NegativeInfinity, float.PositiveInfinity, ref earlyExit);
+        }
+
+        //based on fail-soft alpha-beta from https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning
+        private static (Move, float) AlphaBeta(GameBoard board, bool optimizingWhite, int maxDepth, float a, float b, ref bool earlyExit)
         {
             List<Move> moves = Utils.GetAllMoves(board);
 
             if (optimizingWhite)
             {
-                float bestScore = float.MinValue;
-                int bestMoveIndex = -1;
+                float value = float.NegativeInfinity;
+                int moveIndex = -1;
+
                 for (int i = 0; i < moves.Count; i++)
                 {
-                    if (moves[i].from.t % 2 == 0)
+                    float nodeValue = GetScoreAfterMove(board, moves[i], maxDepth, a, b, ref earlyExit);
+                    if (nodeValue > value)
                     {
-                        float score = GetScoreAfterMove(board, moves[i], maxDepth, ref earlyExit);
-                        if (score > bestScore)
-                        {
-                            bestScore = score;
-                            bestMoveIndex = i;
-                        }
+                        value = nodeValue;
+                        moveIndex = i;
                     }
+                    a = Math.Max(a, value);
+                    if (value >= b)
+                        break;
                 }
-                if (bestMoveIndex == -1)
-                    return (Move.Invalid, 0);
-                return (moves[bestMoveIndex], bestScore);
+                return (moves[moveIndex], value);
             }
             else
             {
-                float bestScore = float.MaxValue;
-                int bestMoveIndex = -1;
+                float value = float.PositiveInfinity;
+                int moveIndex = -1;
+
                 for (int i = 0; i < moves.Count; i++)
                 {
-                    if (moves[i].from.t % 2 == 1)
+                    float nodeValue = GetScoreAfterMove(board, moves[i], maxDepth, a, b, ref earlyExit);
+                    if (nodeValue < value)
                     {
-                        float score = GetScoreAfterMove(board, moves[i], maxDepth, ref earlyExit);
-                        if (score < bestScore)
-                        {
-                            bestScore = score;
-                            bestMoveIndex = i;
-                        }
+                        value = nodeValue;
+                        moveIndex = i;
                     }
+                    a = Math.Min(a, value);
+                    if (value >= b)
+                        break;
                 }
-                if (bestMoveIndex == -1)
-                    return (Move.Invalid, 0);
-                return (moves[bestMoveIndex], bestScore);
+                return (moves[moveIndex], value);
             }
         }
 
-        private static float GetScoreAfterMove(GameBoard board, Move move, int maxDepth, ref bool earlyExit)
+        private static float GetScoreAfterMove(GameBoard board, Move move, int maxDepth, float a, float b, ref bool earlyExit)
         {
             if (board[move.to] == PIECE.WHITE_KING || board[move.to] == PIECE.BLACK_KING)
                 return -Utils.pieceToPointValue[board[move.to]];
@@ -107,7 +111,7 @@ namespace Chess5DGUI
             board[move.from] = PIECE.NONE;
 
             int minTurn = board.boards.Min(timeline => timeline.Count);
-            float score = GetScore(board, minTurn % 2 == 1, maxDepth - 1, ref earlyExit);
+            float score = GetScore(board, minTurn % 2 == 1, maxDepth - 1, a, b, ref earlyExit);
 
             board.boards[move.from.c].RemoveAt(move.from.t);
             if (move.from.c != move.to.c || move.from.t != move.to.t)
@@ -118,7 +122,7 @@ namespace Chess5DGUI
             return score;
         }
 
-        public static float GetScore(GameBoard board, bool optimizingWhite, int maxDepth, ref bool earlyExit)
+        public static float GetScore(GameBoard board, bool optimizingWhite, int maxDepth, float a, float b, ref bool earlyExit)
         {
             if (earlyExit)
                 return GetStaticScore(board);
@@ -126,7 +130,7 @@ namespace Chess5DGUI
                 return GetStaticScore(board);
             else
             {
-                (_, float score) = GetBestMove(board, optimizingWhite, maxDepth, ref earlyExit);
+                (_, float score) = AlphaBeta(board, optimizingWhite, maxDepth, a, b, ref earlyExit);
                 return score;
             }
         }

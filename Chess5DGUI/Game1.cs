@@ -10,7 +10,7 @@ namespace Chess5DGUI
 {
     public class Game1 : Game
     {
-        private GraphicsDeviceManager _graphics;
+        private readonly GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
 
         private Texture2D blank;
@@ -21,12 +21,13 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private GameBoard board = GameBoard.getStartingBoard();
+        private readonly GameBoard board = GameBoard.getStartingBoard();
         private Point4? selectedPos;
         private Move prevMove = Move.Invalid;
         private List<Move> availableMoves;
 
         private MouseState prevMS;
+        private KeyboardState prevKS;
 
         private Vector2 targetViewOffset, viewOffset;
         private const float offsetSmoothingFactor = 0.92f;
@@ -36,6 +37,7 @@ namespace Chess5DGUI
         private const float zoomFactor = 0.999f;
         private const float zoomSmoothingFactor = 0.9f;
 
+        private const bool algoEnabled = true;
         private Thread algoThread;
         private readonly List<(float, Move)> algoEval = new();
         private bool resetAlgoEval = true;
@@ -57,8 +59,11 @@ namespace Chess5DGUI
 
             SetTargetViewOffset(0, 0);
 
-            algoThread = new Thread(AlgoThreadFunction);
-            algoThread.Start(this);
+            if (algoEnabled)
+            {
+                algoThread = new Thread(AlgoThreadFunction);
+                algoThread.Start(this);
+            }
 
             base.Initialize();
         }
@@ -96,10 +101,10 @@ namespace Chess5DGUI
                 if (depth == 0)
                 {
                     move = Move.Invalid;
-                    score = Algorithm.GetScore(workingBoard, minTurn % 2 == 1, 0, ref resetAlgoEval);
+                    score = Algorithm2.GetStaticScore(workingBoard);
                 }
                 else
-                    (move, score) = Algorithm.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
+                    (move, score) = Algorithm2.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
                 lock (algoEval)
                     algoEval.Add((score, move));
                 depth++;
@@ -156,6 +161,19 @@ namespace Chess5DGUI
                 SetTargetViewOffset((board.boards.Count - 1) / 2f, board.boards.Max(b => b.Count) - 1);
                 targetZoomValue = defaultZoomValue;
             }
+            if (ks.IsKeyDown(Keys.X) && prevKS.IsKeyUp(Keys.X))
+            {
+                Move move = algoEval.LastOrDefault((0, Move.Invalid)).Item2;
+                if (availableMoves.Contains(move))
+                {
+                    Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
+                    resetAlgoEval = true;
+                    availableMoves = null;
+                }
+                selectedPos = null;
+            }
+            prevKS = ks;
+
             viewOffset = viewOffset * offsetSmoothingFactor + targetViewOffset * (1 - offsetSmoothingFactor);
 
             base.Update(gameTime);

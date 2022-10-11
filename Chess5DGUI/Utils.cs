@@ -290,7 +290,7 @@ namespace Chess5DGUI
 
         public static List<Move> GetAllMoves(GameBoard board)
         {
-            List<Move> res = new();
+            List<(int, Move)> res = new();
 
             int minTurn = board.boards.Min(timeline => timeline.Count);
             bool isWhiteTurn = minTurn % 2 == 1;
@@ -312,60 +312,64 @@ namespace Chess5DGUI
                                 case PIECE.WHITE_PAWN:
                                     {
                                         //forward
-                                        if (y < 7 && board[c, t, x, y + 1] == PIECE.NONE)
+                                        if (y < 7)
                                         {
-                                            //1 y
-                                            res.Add(new(pos, new(c, t, x, y + 1)));
-                                            if (y == board.whitePawnStartY && board[c, t, x, y + 2] == PIECE.NONE)
-                                                //2 y
-                                                res.Add(new(pos, new(c, t, x, y + 2)));
-
+                                            if (board[c, t, x, y + 1] == PIECE.NONE)
+                                            {
+                                                //1 y
+                                                res.Add((0, new(pos, new(c, t, x, y + 1))));
+                                                if (y == board.whitePawnStartY && board[c, t, x, y + 2] == PIECE.NONE)
+                                                    //2 y
+                                                    res.Add((0, new(pos, new(c, t, x, y + 2))));
+                                            }
                                             //capture x/y
                                             if (x < 7 && IsBlackPiece(board[c, t, x + 1, y + 1]))
-                                                res.Add(new(pos, new(c, t, x + 1, y + 1)));
+                                                res.Add((pieceToPointValue[board[c, t, x + 1, y + 1]], new(pos, new(c, t, x + 1, y + 1))));
                                             if (x > 0 && IsBlackPiece(board[c, t, x - 1, y + 1]))
-                                                res.Add(new(pos, new(c, t, x - 1, y + 1)));
+                                                res.Add((pieceToPointValue[board[c, t, x - 1, y + 1]], new(pos, new(c, t, x - 1, y + 1))));
                                         }
                                         if (c < board.boards.Count - 1 && t < board.boards[c + 1].Count && board[c + 1, t, x, y] == PIECE.NONE)
                                         {
                                             //1 c
-                                            res.Add(new(pos, new(c + 1, t, x, y)));
+                                            res.Add((0, new(pos, new(c + 1, t, x, y))));
 
                                             //capture c/t
                                             if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c + 1, t + 1, x, y]))
-                                                res.Add(new(pos, new(c + 1, t + 1, x, y)));
+                                                res.Add((pieceToPointValue[board[c + 1, t + 1, x, y]], new(pos, new(c + 1, t + 1, x, y))));
                                             if (t > 0 && IsBlackPiece(board[c + 1, t - 1, x, y]))
-                                                res.Add(new(pos, new(c + 1, t - 1, x, y)));
+                                                res.Add((pieceToPointValue[board[c + 1, t - 1, x, y]], new(pos, new(c + 1, t - 1, x, y))));
                                         }
                                         break;
                                     }
                                 case PIECE.BLACK_PAWN:
                                     {
                                         //forward
-                                        if (y > 0 && board[c, t, x, y - 1] == PIECE.NONE)
+                                        if (y > 0)
                                         {
-                                            //1 y
-                                            res.Add(new(pos, new(c, t, x, y - 1)));
-                                            if (y == board.blackPawnStartY && board[c, t, x, y - 2] == PIECE.NONE)
-                                                //2 y
-                                                res.Add(new(pos, new(c, t, x, y - 2)));
-
+                                            if (board[c, t, x, y - 1] == PIECE.NONE)
+                                            {
+                                                //1 y
+                                                res.Add((0, new(pos, new(c, t, x, y - 1))));
+                                                if (y == board.blackPawnStartY && board[c, t, x, y - 2] == PIECE.NONE)
+                                                    //2 y
+                                                    res.Add((0, new(pos, new(c, t, x, y - 2))));
+                                            }
                                             //capture x/y
                                             if (x < 7 && IsWhitePiece(board[c, t, x + 1, y - 1]))
-                                                res.Add(new(pos, new(c, t, x + 1, y - 1)));
+                                                res.Add((pieceToPointValue[board[c, t, x + 1, y - 1]], new(pos, new(c, t, x + 1, y - 1))));
                                             if (x > 0 && IsWhitePiece(board[c, t, x - 1, y - 1]))
-                                                res.Add(new(pos, new(c, t, x - 1, y - 1)));
+                                                res.Add((pieceToPointValue[board[c, t, x - 1, y - 1]], new(pos, new(c, t, x - 1, y - 1))));
                                         }
                                         if (c > 0 && t < board.boards[c - 1].Count && board[c - 1, t, x, y] == PIECE.NONE)
                                         {
                                             //1 c
-                                            res.Add(new(pos, new(c - 1, t, x, y)));
+                                            res.Add((0, new(pos, new(c - 1, t, x, y))));
 
                                             //capture c/t
                                             if (t < board.boards[c].Count - 1 && IsBlackPiece(board[c - 1, t + 1, x, y]))
-                                                res.Add(new(pos, new(c - 1, t + 1, x, y)));
+                                                res.Add((pieceToPointValue[board[c - 1, t + 1, x, y]], new(pos, new(c - 1, t + 1, x, y))));
                                             if (t > 0 && IsWhitePiece(board[c - 1, t - 1, x, y]))
-                                                res.Add(new(pos, new(c - 1, t - 1, x, y)));
+                                                res.Add((pieceToPointValue[board[c - 1, t - 1, x, y]], new(pos, new(c - 1, t - 1, x, y))));
                                         }
                                         break;
                                     }
@@ -381,7 +385,7 @@ namespace Chess5DGUI
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
-                                            res.Add(new(pos, pos + item * i));
+                                            res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
                                             if (IsOpponentPiece(p, p2))
                                                 break;
                                         }
@@ -397,7 +401,7 @@ namespace Chess5DGUI
                                         PIECE p2 = board[pos2];
                                         if (IsFriendlyPiece(p, p2))
                                             continue;
-                                        res.Add(new(pos, pos + item));
+                                        res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
                                     }
                                     break;
                                 case PIECE.WHITE_BISHOP:
@@ -412,7 +416,7 @@ namespace Chess5DGUI
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
-                                            res.Add(new(pos, pos + item * i));
+                                            res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
                                             if (IsOpponentPiece(p, p2))
                                                 break;
                                         }
@@ -430,7 +434,7 @@ namespace Chess5DGUI
                                             PIECE p2 = board[pos2];
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
-                                            res.Add(new(pos, pos + item * i));
+                                            res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
                                             if (IsOpponentPiece(p, p2))
                                                 break;
                                         }
@@ -446,7 +450,7 @@ namespace Chess5DGUI
                                         PIECE p2 = board[pos2];
                                         if (IsFriendlyPiece(p, p2))
                                             continue;
-                                        res.Add(new(pos, pos + item));
+                                        res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
                                     }
                                     break;
                                 default:
@@ -455,7 +459,8 @@ namespace Chess5DGUI
                         }
                 }
 
-            return res;
+            res.Sort((x, y) => Math.Abs(y.Item1) - Math.Abs(x.Item1));
+            return res.Select(m => m.Item2).ToList();
         }
 
         public static Vector2 ScreenToWorldSpace(Vector2 p, Game g, Vector2 offset, float zoom)
