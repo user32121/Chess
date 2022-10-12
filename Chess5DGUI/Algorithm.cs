@@ -57,8 +57,10 @@ namespace Chess5DGUI
 
         private static float GetScoreAfterMove(GameBoard board, Move move, int maxDepth, ref bool earlyExit)
         {
-            if (board[move.to] == PIECE.WHITE_KING || board[move.to] == PIECE.BLACK_KING)
-                return -Utils.pieceToPointValue[board[move.to]];
+            if (board[move.to] == PIECE.WHITE_KING)
+                return -Utils.WIN_VALUE;
+            if (board[move.to] == PIECE.BLACK_KING)
+                return Utils.WIN_VALUE;
 
             bool removeNewRow = false;
             if (move.from.t == move.to.t && move.from.c == move.to.c)
@@ -141,8 +143,8 @@ namespace Chess5DGUI
             {
                 int t = board.boards[c].Count - 1;
                 boards++;
-                for (int x = 0; x < 8; x++)
-                    for (int y = 0; y < 8; y++)
+                for (int x = 0; x < board.boardSize; x++)
+                    for (int y = 0; y < board.boardSize; y++)
                         score += Utils.pieceToPointValue[board[c, t, x, y]];
             }
             return score / boards;

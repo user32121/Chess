@@ -1,10 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Chess5DGUI
 {
@@ -27,6 +24,7 @@ namespace Chess5DGUI
         BLACK_QUEEN = 4 | BLACK_PIECE,
         BLACK_KING = 5 | BLACK_PIECE,
         COLOR_MASK = WHITE_PIECE | BLACK_PIECE,
+        PIECE_MASK = 0b111,
     };
 
     public class GameBoard
@@ -36,18 +34,39 @@ namespace Chess5DGUI
         public int timelinesByWhite = 0;
         public bool whiteCanCastleKingSide, whiteCanCastleQueenSide, blackCanCastleKingSide, blackCanCastleQueenSide;
         public int enPassantOpportunity = -1;
+        public int boardSize;
 
         public GameBoard(List<List<PIECE[,]>> boards, int whitePawnStartY, int blackPawnStartY)
         {
             this.boards = boards;
             this.whitePawnStartY = whitePawnStartY;
             this.blackPawnStartY = blackPawnStartY;
+            this.boardSize = boards[0][0].GetLength(0);
             whiteCanCastleKingSide = whiteCanCastleQueenSide = blackCanCastleKingSide = blackCanCastleQueenSide = true;
+        }
+        public GameBoard(GameBoard b)
+        {
+            boards = b.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList();
+            whitePawnStartY = b.whitePawnStartY;
+            blackPawnStartY = b.blackPawnStartY;
+            boardSize = b.boardSize;
+            timelinesByWhite = b.timelinesByWhite;
         }
 
         public PIECE this[Point4 p]
         {
-            get { return boards[p.c][p.t]?[p.x, p.y] ?? PIECE.INVALID; }
+            get
+            {
+                try
+                {
+                    return boards[p.c][p.t][p.x, p.y];
+                }
+                catch (Exception)
+                {
+                    return PIECE.INVALID;
+                    throw;
+                }
+            }
             set { boards[p.c][p.t][p.x, p.y] = value; }
         }
         public PIECE this[int c, int t, int x, int y]
@@ -58,7 +77,7 @@ namespace Chess5DGUI
                 {
                     return boards[c][t]?[x, y] ?? PIECE.INVALID;
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     return PIECE.NONE;
                     throw;
@@ -67,7 +86,7 @@ namespace Chess5DGUI
             set { boards[c][t][x, y] = value; }
         }
 
-        public static GameBoard getStartingBoard() => new(new(){ new(){ new PIECE[,]
+        public static GameBoard GetStandardStartingBoard() => new(new(){ new(){ new PIECE[,]
         {
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
@@ -78,6 +97,34 @@ namespace Chess5DGUI
             { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
             { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
         } } }, 1, 6);
+        public static GameBoard GetMiscSmallStartingBoard() => new(new(){ new(){ new PIECE[,]
+        {
+            { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
+            { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
+            { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
+            { PIECE.WHITE_QUEEN, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_QUEEN },
+            { PIECE.WHITE_KING, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KING },
+        } } }, 1, 3);
+        //public static GameBoard GetMiscTimeLineInvasionStartingBoard() => new(new(){ new(){ new PIECE[,]
+        //{
+        //    { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
+        //    { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
+        //    { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
+        //    { PIECE.WHITE_KING, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KING },
+        //    { PIECE.WHITE_QUEEN, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_QUEEN },
+        //    { PIECE.WHITE_BISHOP, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_BISHOP },
+        //    { PIECE.WHITE_KNIGHT, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_KNIGHT },
+        //    { PIECE.WHITE_ROOK, PIECE.WHITE_PAWN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_PAWN, PIECE.BLACK_ROOK },
+        //} } }, 1, 6);
+        public static GameBoard GetFocusedQueensStartingBoard() => new(new(){ new(){ new PIECE[,]
+        {
+            { PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, },
+            { PIECE.WHITE_QUEEN, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, },
+            { PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_KING, },
+            { PIECE.WHITE_KING, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, },
+            { PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.BLACK_QUEEN, },
+            { PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, PIECE.NONE, },
+        } } }, -1, -1);
     }
 
     public struct Point4 : IEquatable<Point4>
@@ -133,17 +180,17 @@ namespace Chess5DGUI
             this.to = to;
         }
 
-        public static Move Invalid = new(new(-1, -1, -1, -1), new(-1, -1, -1, -1));
+        public static readonly Move Invalid = new(new(-1, -1, -1, -1), new(-1, -1, -1, -1));
 
         public override string ToString()
         {
-            return String.Format("{0},{1},{2},{3}->{4},{5},{6},{7}", from.c, from.t, from.x, from.y, to.c, to.t, to.x, to.y);
+            return string.Format("{0},{1},{2},{3}->{4},{5},{6},{7}", from.c, from.t, from.x, from.y, to.c, to.t, to.x, to.y);
         }
     }
 
     public static class Utils
     {
-        public static Dictionary<PIECE, Point> pieceTexIndex = new Dictionary<PIECE, Point>()
+        public static readonly Dictionary<PIECE, Point> pieceTexIndex = new()
         {
             {PIECE.NONE,new Point(0,640)},
             {PIECE.WHITE_KING,new Point(0,0)},
@@ -159,7 +206,7 @@ namespace Chess5DGUI
             {PIECE.BLACK_ROOK,new Point(1280,320)},
             {PIECE.BLACK_PAWN,new Point(1600,320)},
         };
-        public static Dictionary<PIECE, int> pieceToPointValue = new Dictionary<PIECE, int>()
+        public static readonly Dictionary<PIECE, int> pieceToPointValue = new()
         {
             { PIECE.NONE, 0 },
             { PIECE.WHITE_PAWN, 1 },
@@ -167,19 +214,20 @@ namespace Chess5DGUI
             { PIECE.WHITE_BISHOP, 3 },
             { PIECE.WHITE_ROOK, 5 },
             { PIECE.WHITE_QUEEN, 9 },
-            { PIECE.WHITE_KING, 1000 },
+            { PIECE.WHITE_KING, 0 },
             { PIECE.BLACK_PAWN, -1 },
             { PIECE.BLACK_KNIGHT, -3 },
             { PIECE.BLACK_BISHOP, -3 },
             { PIECE.BLACK_ROOK, -5 },
             { PIECE.BLACK_QUEEN, -9 },
-            { PIECE.BLACK_KING, -1000 },
+            { PIECE.BLACK_KING, 0 },
         };
+        public const int WIN_VALUE = 1000;
 
-        public static List<Point4> rookDirs = new();
-        public static List<Point4> bishopDirs = new();
-        public static List<Point4> queenDirs = new();
-        public static List<Point4> knightMoves = new();
+        public static readonly List<Point4> rookDirs = new();
+        public static readonly List<Point4> bishopDirs = new();
+        public static readonly List<Point4> queenDirs = new();
+        public static readonly List<Point4> knightMoves = new();
 
         static Utils()
         {
@@ -218,7 +266,7 @@ namespace Chess5DGUI
                         }
         }
 
-        public static void PerformMove(GameBoard board, Move move, ref Move prevMove, Action<float, float> setViewOffset)
+        public static Move PerformMove(GameBoard board, Move move)
         {
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
@@ -265,14 +313,12 @@ namespace Chess5DGUI
             board[move.to] = board[move.from];
             board[move.from] = PIECE.NONE;
 
-            prevMove = move;
-
-            setViewOffset(move.to.c, move.to.t);
+            return move;
         }
 
         public static bool IsInBounds(GameBoard b, Point4 p)
         {
-            return p.x >= 0 && p.y >= 0 && p.c >= 0 && p.t >= 0 && p.x < 8 && p.y < 8 && p.c < b.boards.Count && p.t < b.boards[p.c].Count && b.boards[p.c][p.t] != null;
+            return p.c >= 0 && p.t >= 0 && p.x >= 0 && p.y >= 0 && p.c < b.boards.Count && p.t < b.boards[p.c].Count && b.boards[p.c][p.t] != null && p.x < b.boardSize && p.y < b.boardSize;
         }
         public static bool IsWhitePiece(PIECE p)
         {
@@ -290,6 +336,10 @@ namespace Chess5DGUI
         {
             return ((p1 ^ p2) & PIECE.COLOR_MASK) == PIECE.COLOR_MASK;
         }
+        public static bool IsSamePiece(PIECE p1, PIECE p2)
+        {
+            return (p1 & PIECE.PIECE_MASK) == (p2 & PIECE.PIECE_MASK);
+        }
 
         public static List<Move> GetAllMoves(GameBoard board)
         {
@@ -301,8 +351,8 @@ namespace Chess5DGUI
                 if (board.boards[c].Count % 2 == 0 ^ isWhiteTurn)
                 {
                     int t = board.boards[c].Count - 1;
-                    for (int x = 0; x < 8; x++)
-                        for (int y = 0; y < 8; y++)
+                    for (int x = 0; x < board.boardSize; x++)
+                        for (int y = 0; y < board.boardSize; y++)
                         {
                             Point4 pos = new(c, t, x, y);
                             PIECE p = board[pos];
@@ -316,7 +366,7 @@ namespace Chess5DGUI
                                 case PIECE.WHITE_PAWN:
                                     {
                                         //forward
-                                        if (y < 7)
+                                        if (y < board.boardSize - 1)
                                         {
                                             if (board[c, t, x, y + 1] == PIECE.NONE)
                                             {
@@ -327,7 +377,7 @@ namespace Chess5DGUI
                                                     res.Add((0, new(pos, new(c, t, x, y + 2))));
                                             }
                                             //capture x/y
-                                            if (x < 7 && IsBlackPiece(board[c, t, x + 1, y + 1]))
+                                            if (x < board.boardSize - 1 && IsBlackPiece(board[c, t, x + 1, y + 1]))
                                                 res.Add((pieceToPointValue[board[c, t, x + 1, y + 1]], new(pos, new(c, t, x + 1, y + 1))));
                                             if (x > 0 && IsBlackPiece(board[c, t, x - 1, y + 1]))
                                                 res.Add((pieceToPointValue[board[c, t, x - 1, y + 1]], new(pos, new(c, t, x - 1, y + 1))));
@@ -339,10 +389,18 @@ namespace Chess5DGUI
                                                 res.Add((0, new(pos, new(c + 1, t, x, y))));
 
                                             //capture c/t
-                                            if (t + 1 < board.boards[c + 1].Count - 1 && (t + 1 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(board[c + 1, t + 1, x, y]))
-                                                res.Add((pieceToPointValue[board[c + 1, t + 1, x, y]], new(pos, new(c + 1, t + 1, x, y))));
-                                            if (t > 0 && (t - 1 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(board[c + 1, t - 1, x, y]))
-                                                res.Add((pieceToPointValue[board[c + 1, t - 1, x, y]], new(pos, new(c + 1, t - 1, x, y))));
+                                            if (t + 2 <= board.boards[c + 1].Count - 1)
+                                            {
+                                                PIECE p2 = board[c + 1, t + 2, x, y];
+                                                if ((p2 == PIECE.BLACK_KING || t + 2 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(p2))
+                                                    res.Add((pieceToPointValue[board[c + 1, t + 2, x, y]], new(pos, new(c + 1, t + 2, x, y))));
+                                            }
+                                            if (t >= 2)
+                                            {
+                                                PIECE p2 = board[c + 1, t - 2, x, y];
+                                                if ((p2 == PIECE.BLACK_KING || t - 2 == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1) && IsBlackPiece(p2))
+                                                    res.Add((pieceToPointValue[board[c + 1, t - 2, x, y]], new(pos, new(c + 1, t - 2, x, y))));
+                                            }
                                         }
                                         break;
                                     }
@@ -360,7 +418,7 @@ namespace Chess5DGUI
                                                     res.Add((0, new(pos, new(c, t, x, y - 2))));
                                             }
                                             //capture x/y
-                                            if (x < 7 && IsWhitePiece(board[c, t, x + 1, y - 1]))
+                                            if (x < board.boardSize - 1 && IsWhitePiece(board[c, t, x + 1, y - 1]))
                                                 res.Add((pieceToPointValue[board[c, t, x + 1, y - 1]], new(pos, new(c, t, x + 1, y - 1))));
                                             if (x > 0 && IsWhitePiece(board[c, t, x - 1, y - 1]))
                                                 res.Add((pieceToPointValue[board[c, t, x - 1, y - 1]], new(pos, new(c, t, x - 1, y - 1))));
@@ -372,10 +430,18 @@ namespace Chess5DGUI
                                                 res.Add((0, new(pos, new(c - 1, t, x, y))));
 
                                             //capture c/t
-                                            if (t < board.boards[c].Count - 1 && (t + 1 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsBlackPiece(board[c - 1, t + 1, x, y]))
-                                                res.Add((pieceToPointValue[board[c - 1, t + 1, x, y]], new(pos, new(c - 1, t + 1, x, y))));
-                                            if (t > 0 && (t - 1 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsWhitePiece(board[c - 1, t - 1, x, y]))
-                                                res.Add((pieceToPointValue[board[c - 1, t - 1, x, y]], new(pos, new(c - 1, t - 1, x, y))));
+                                            if (t + 2 <= board.boards[c - 1].Count - 1)
+                                            {
+                                                PIECE p2 = board[c - 1, t + 2, x, y];
+                                                if ((p2 == PIECE.WHITE_KING || t + 2 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsBlackPiece(p2))
+                                                    res.Add((pieceToPointValue[board[c - 1, t + 2, x, y]], new(pos, new(c - 1, t + 2, x, y))));
+                                            }
+                                            if (t - 2 >= 0)
+                                            {
+                                                PIECE p2 = board[c - 1, t - 2, x, y];
+                                                if ((p2 == PIECE.WHITE_KING || t - 2 == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1) && IsWhitePiece(board[c - 1, t - 2, x, y]))
+                                                    res.Add((pieceToPointValue[board[c - 1, t - 2, x, y]], new(pos, new(c - 1, t - 2, x, y))));
+                                            }
                                         }
                                         break;
                                     }
@@ -383,12 +449,14 @@ namespace Chess5DGUI
                                 case PIECE.BLACK_ROOK:
                                     foreach (Point4 item in rookDirs)
                                     {
-                                        for (int i = 1; i < 8; i++)
+                                        for (int i = 1; i < 100; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                            if (!IsInBounds(board, pos2))
                                                 break;
                                             PIECE p2 = board[pos2];
+                                            if (!(IsSamePiece(p2, PIECE.WHITE_KING) || pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                                break;
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
                                             res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
@@ -402,9 +470,11 @@ namespace Chess5DGUI
                                     foreach (Point4 item in knightMoves)
                                     {
                                         Point4 pos2 = pos + item;
-                                        if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                        if (!IsInBounds(board, pos2))
                                             continue;
                                         PIECE p2 = board[pos2];
+                                        if (!(IsSamePiece(p2, PIECE.WHITE_KING) || pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                            continue;
                                         if (IsFriendlyPiece(p, p2))
                                             continue;
                                         res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
@@ -414,12 +484,14 @@ namespace Chess5DGUI
                                 case PIECE.BLACK_BISHOP:
                                     foreach (Point4 item in bishopDirs)
                                     {
-                                        for (int i = 1; i < 8; i++)
+                                        for (int i = 1; i < 100; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                            if (!IsInBounds(board, pos2))
                                                 break;
                                             PIECE p2 = board[pos2];
+                                            if (!(IsSamePiece(p2, PIECE.WHITE_KING) || pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                                break;
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
                                             res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
@@ -432,12 +504,14 @@ namespace Chess5DGUI
                                 case PIECE.BLACK_QUEEN:
                                     foreach (Point4 item in queenDirs)
                                     {
-                                        for (int i = 1; i < 8; i++)
+                                        for (int i = 1; i < 100; i++)
                                         {
                                             Point4 pos2 = pos + item * i;
-                                            if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                            if (!IsInBounds(board, pos2))
                                                 break;
                                             PIECE p2 = board[pos2];
+                                            if (!(IsSamePiece(p2, PIECE.WHITE_KING) || pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                                break;
                                             if (IsFriendlyPiece(p, p2))
                                                 break;
                                             res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
@@ -451,9 +525,11 @@ namespace Chess5DGUI
                                     foreach (Point4 item in queenDirs)
                                     {
                                         Point4 pos2 = pos + item;
-                                        if (!IsInBounds(board, pos2) || !(pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                        if (!IsInBounds(board, pos2))
                                             continue;
                                         PIECE p2 = board[pos2];
+                                        if (!(IsSamePiece(p2, PIECE.WHITE_KING) || pos2.t == board.boards[pos2.c].Count - 1 || colorMultiplier * board.timelinesByWhite < 1))
+                                            continue;
                                         if (IsFriendlyPiece(p, p2))
                                             continue;
                                         res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));

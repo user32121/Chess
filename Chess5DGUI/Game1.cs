@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 
@@ -21,9 +22,9 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = GameBoard.getStartingBoard();
+        private readonly GameBoard board = GameBoard.GetFocusedQueensStartingBoard();
         private Point4? selectedPos;
-        private Move prevMove = Move.Invalid;
+        private List<Point4> prevMove = new();
         private List<Move> availableMoves;
 
         private MouseState prevMS;
@@ -39,7 +40,8 @@ namespace Chess5DGUI
 
         private const bool algoEnabled = true;
         private Thread algoThread;
-        private readonly List<(float, Move)> algoEval = new();
+        private readonly Stopwatch stopwatch = new();
+        private readonly List<(float, Move, long)> algoEval = new();
         private bool resetAlgoEval = true;
         private bool stopAlgo = false;
 
@@ -93,18 +95,12 @@ namespace Chess5DGUI
                     depth = 0;
                     lock (algoEval)
                         algoEval.Clear();
-                    workingBoard = new GameBoard(board.boards.Select(l => l.Select(b => (PIECE[,])b?.Clone()).ToList()).ToList(), board.whitePawnStartY, board.blackPawnStartY)
-                    {
-                        blackCanCastleQueenSide = board.blackCanCastleQueenSide,
-                        blackCanCastleKingSide = board.blackCanCastleKingSide,
-                        whiteCanCastleQueenSide = board.whiteCanCastleQueenSide,
-                        whiteCanCastleKingSide = board.whiteCanCastleKingSide,
-                        timelinesByWhite = board.timelinesByWhite,
-                    };
+                    workingBoard = new GameBoard(board);
                 }
                 int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
                 Move move;
                 float score;
+                stopwatch.Restart();
                 if (depth == 0)
                 {
                     move = Move.Invalid;
@@ -112,8 +108,9 @@ namespace Chess5DGUI
                 }
                 else
                     (move, score) = Algorithm2.GetBestMove(workingBoard, minTurn % 2 == 1, depth, ref resetAlgoEval);
+                stopwatch.Stop();
                 lock (algoEval)
-                    algoEval.Add((score, move));
+                    algoEval.Add((score, move, stopwatch.ElapsedMilliseconds));
                 depth++;
             }
         }
@@ -126,17 +123,12 @@ namespace Chess5DGUI
             if (ms.LeftButton == ButtonState.Pressed && prevMS.LeftButton == ButtonState.Released)
             {
                 Point clickPos = Utils.ScreenToWorldSpace(ms.Position.ToVector2(), this, viewOffset, zoom).ToPoint();
-                Point4 clickTile = new(clickPos.Y / pieceDrawSize / 9, clickPos.X / pieceDrawSize / 9, clickPos.X / pieceDrawSize % 9, clickPos.Y / pieceDrawSize % 9);
+                Point4 clickTile = new(clickPos.Y / pieceDrawSize / (board.boardSize + 1), clickPos.X / pieceDrawSize / (board.boardSize + 1), clickPos.X / pieceDrawSize % (board.boardSize + 1), clickPos.Y / pieceDrawSize % (board.boardSize + 1));
                 if (selectedPos.HasValue)
                 {
                     Move move = new(selectedPos.Value, clickTile);
                     if (availableMoves.Contains(move))
-                    {
-                        Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
-                        resetAlgoEval = true;
-                        availableMoves = null;
-                    }
-                    selectedPos = null;
+                        PerformMove(move);
                 }
                 else if (availableMoves.Any(m => m.from == clickTile))
                     selectedPos = clickTile;
@@ -170,14 +162,14 @@ namespace Chess5DGUI
             }
             if (ks.IsKeyDown(Keys.X) && prevKS.IsKeyUp(Keys.X))
             {
-                Move move = algoEval.LastOrDefault((0, Move.Invalid)).Item2;
+                Move move = algoEval.LastOrDefault((0, Move.Invalid, 0)).Item2;
                 if (availableMoves.Contains(move))
-                {
-                    Utils.PerformMove(board, move, ref prevMove, SetTargetViewOffset);
-                    resetAlgoEval = true;
-                    availableMoves = null;
-                }
-                selectedPos = null;
+                    PerformMove(move);
+            }
+            if (ks.IsKeyDown(Keys.P) && selectedPos.HasValue)
+            {
+                Move move = new(selectedPos.Value, selectedPos.Value);
+                PerformMove(move);
             }
             prevKS = ks;
 
@@ -203,16 +195,16 @@ namespace Chess5DGUI
                 for (int t = 0; t < board.boards[c].Count; t++)
                     if (board.boards[c][t] != null)
                     {
-                        Point drawBoardPos = new(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
-                        Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * 9));
+                        Point drawBoardPos = new(t * pieceDrawSize * (board.boardSize + 1), c * pieceDrawSize * (board.boardSize + 1));
+                        Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * (board.boardSize + 1)));
                         if (!viewWorldRect.Intersects(drawBoardRect))
                             continue;
                         int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
-                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, 8 * pieceDrawSize + borderPixelWidth * 2, 8 * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
+                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, board.boardSize * pieceDrawSize + borderPixelWidth * 2, board.boardSize * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
 
-                        for (int x = 0; x < 8; x++)
+                        for (int x = 0; x < board.boardSize; x++)
                         {
-                            for (int y = 0; y < 8; y++)
+                            for (int y = 0; y < board.boardSize; y++)
                             {
                                 Point drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
                                 Point spriteTexPos = Utils.pieceTexIndex[board[c, t, x, y]];
@@ -221,11 +213,11 @@ namespace Chess5DGUI
                                 _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), (x + y) % 2 == 0 ? Color.RosyBrown : Color.Tan);
 
                                 //previous move
-                                if (prevMove.from == new Point4(c, t, x, y) || prevMove.to == new Point4(c, t, x, y))
+                                if (prevMove.Contains(new Point4(c, t, x, y)))
                                     _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.Yellow * 0.5f);
 
                                 //suggested move
-                                (_, Move suggestedMove) = algoEval.LastOrDefault((0, Move.Invalid));
+                                (_, Move suggestedMove, _) = algoEval.LastOrDefault((0, Move.Invalid, 0));
                                 if (suggestedMove.from == new Point4(c, t, x, y) || suggestedMove.to == new Point4(c, t, x, y))
                                     _spriteBatch.Draw(blank, new Rectangle(drawPiecePos.X, drawPiecePos.Y, pieceDrawSize, pieceDrawSize), Color.LightBlue * 1f);
                                 else if (availableMoves != null)
@@ -260,10 +252,10 @@ namespace Chess5DGUI
             {
                 for (int i = 0; i < algoEval.Count; i++)
                 {
-                    (float score, Move move) = algoEval[i];
+                    (float score, Move move, long milliseconds) = algoEval[i];
                     string text;
                     if (move.from != Move.Invalid.from)
-                        text = string.Format("{0}: {1:f} ({2})", i, score, move);
+                        text = string.Format("{0}: {1:f} ({2}) ({3})", i, score, move, milliseconds / 1000f);
                     else
                         text = string.Format("{0}: {1:f}", i, score);
                     _spriteBatch.DrawString(font, text, drawPos, Color.Black);
@@ -285,7 +277,29 @@ namespace Chess5DGUI
 
         private void SetTargetViewOffset(float c, float t)
         {
-            targetViewOffset = new Vector2(t * pieceDrawSize * 9, c * pieceDrawSize * 9);
+            targetViewOffset = new Vector2(t * pieceDrawSize * (board.boardSize + 1), c * pieceDrawSize * (board.boardSize + 1));
+        }
+
+        private void PerformMove(Move move)
+        {
+            Move actualMove = Utils.PerformMove(board, move);
+
+            resetAlgoEval = true;
+            availableMoves = null;
+            selectedPos = null;
+
+            if (actualMove.to.c == 0 && actualMove.from.c != move.to.c)
+                for (int i = 0; i < prevMove.Count; i++)
+                {
+                    Point4 p = prevMove[i];
+                    p.c++;
+                    prevMove[i] = p;
+                }
+
+            prevMove.Add(actualMove.from);
+            prevMove.Add(actualMove.to);
+
+            SetTargetViewOffset(actualMove.to.c, actualMove.to.t);
         }
     }
 }
