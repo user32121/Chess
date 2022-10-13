@@ -66,8 +66,10 @@ namespace Chess5DGUI
 
         private static float GetScoreAfterMove(GameBoard board, Move move, int maxDepth, float a, float b, ref bool earlyExit)
         {
-            if (board[move.to] == PIECE.WHITE_KING || board[move.to] == PIECE.BLACK_KING)
-                return -Utils.pieceToPointValue[board[move.to]];
+            if (board[move.to] == PIECE.WHITE_KING)
+                return -Utils.WIN_VALUE;
+            if (board[move.to] == PIECE.BLACK_KING)
+                return Utils.WIN_VALUE;
 
             bool removeNewRow = false;
             if (move.from.t == move.to.t && move.from.c == move.to.c)
@@ -114,7 +116,21 @@ namespace Chess5DGUI
                     removeNewRow = true;
                 }
             }
-            board[move.to] = board[move.from];
+            int kingCaptures = 0;
+            if (board[move.to] == PIECE.WHITE_KING)
+                kingCaptures++;
+            else if (board[move.to] == PIECE.BLACK_KING)
+                kingCaptures--;
+            board.whiteKingCaptured += kingCaptures;
+
+            PIECE p = board[move.from];
+
+            if (p == PIECE.WHITE_PAWN && move.to.y == board.height - 1)
+                p = PIECE.WHITE_QUEEN;
+            else if (p == PIECE.BLACK_PAWN && move.to.y == 0)
+                p = PIECE.BLACK_QUEEN;
+
+            board[move.to] = p;
             board[move.from] = PIECE.NONE;
 
             int minTurn = board.boards.Min(timeline => timeline.Count);
@@ -131,6 +147,7 @@ namespace Chess5DGUI
                 else
                     board.timelinesByWhite++;
             }
+            board.whiteKingCaptured -= kingCaptures;
 
             return score;
         }
@@ -160,7 +177,10 @@ namespace Chess5DGUI
                     for (int y = 0; y < board.height; y++)
                         score += Utils.pieceToPointValue[board[c, t, x, y]];
             }
-            return score / boards - board.timelinesByWhite * 5;
+            score /= boards;
+            score -= board.timelinesByWhite * 5;
+            score -= board.whiteKingCaptured * Utils.WIN_VALUE;
+            return score;
         }
     }
 }

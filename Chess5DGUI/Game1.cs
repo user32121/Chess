@@ -22,7 +22,7 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = GameBoard.GetStandardStartingBoard();
+        private readonly GameBoard board = GameBoard.GetMiscTimelineInvasionStartingBoard();
         private Point4? selectedPos;
         private readonly List<Point4> prevMove = new();
         private List<Move> availableMoves;
@@ -37,6 +37,8 @@ namespace Chess5DGUI
         private const int defaultZoomValue = -400;
         private const float zoomFactor = 0.999f;
         private const float zoomSmoothingFactor = 0.9f;
+
+        private const bool isWhitePerspective = true;
 
         private const bool algoEnabled = true;
         private Thread algoThread;
@@ -123,7 +125,11 @@ namespace Chess5DGUI
             if (ms.LeftButton == ButtonState.Pressed && prevMS.LeftButton == ButtonState.Released)
             {
                 Point clickPos = Utils.ScreenToWorldSpace(ms.Position.ToVector2(), this, viewOffset, zoom).ToPoint();
-                Point4 clickTile = new(clickPos.Y / pieceDrawSize / (board.height + 1), clickPos.X / pieceDrawSize / (board.width + 1), clickPos.X / pieceDrawSize % (board.width + 1), clickPos.Y / pieceDrawSize % (board.height + 1));
+                Point4 clickTile;
+                if (isWhitePerspective)
+                    clickTile = new(board.boards.Count - 1 - clickPos.Y / pieceDrawSize / (board.height + 1), clickPos.X / pieceDrawSize / (board.width + 1), clickPos.X / pieceDrawSize % (board.width + 1), board.height - 1 - clickPos.Y / pieceDrawSize % (board.height + 1));
+                else
+                    clickTile = new(clickPos.Y / pieceDrawSize / (board.height + 1), clickPos.X / pieceDrawSize / (board.width + 1), board.width - 1 - clickPos.X / pieceDrawSize % (board.width + 1), clickPos.Y / pieceDrawSize % (board.height + 1));
                 if (selectedPos.HasValue)
                 {
                     Move move = new(selectedPos.Value, clickTile);
@@ -195,7 +201,11 @@ namespace Chess5DGUI
                 for (int t = 0; t < board.boards[c].Count; t++)
                     if (board.boards[c][t] != null)
                     {
-                        Point drawBoardPos = new(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
+                        Point drawBoardPos;
+                        if (isWhitePerspective)
+                            drawBoardPos = new(t * pieceDrawSize * (board.width + 1), (board.boards.Count - c - 1) * pieceDrawSize * (board.height + 1));
+                        else
+                            drawBoardPos = new(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
                         Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * (board.width + 1), pieceDrawSize * (board.height + 1)));
                         if (!viewWorldRect.Intersects(drawBoardRect))
                             continue;
@@ -206,7 +216,11 @@ namespace Chess5DGUI
                         {
                             for (int y = 0; y < board.height; y++)
                             {
-                                Point drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
+                                Point drawPiecePos;
+                                if (isWhitePerspective)
+                                    drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, (board.height - y - 1) * pieceDrawSize + drawBoardPos.Y);
+                                else
+                                    drawPiecePos = new((board.width - x - 1) * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
                                 Point spriteTexPos = Utils.pieceTexIndex[board[c, t, x, y]];
 
                                 //checkerboard
@@ -277,7 +291,10 @@ namespace Chess5DGUI
 
         private void SetTargetViewOffset(float c, float t)
         {
-            targetViewOffset = new Vector2(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
+            if (isWhitePerspective)
+                targetViewOffset = new(t * pieceDrawSize * (board.width + 1), (board.boards.Count - c - 1) * pieceDrawSize * (board.height + 1));
+            else
+                targetViewOffset = new(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
         }
 
         private void PerformMove(Move move)
