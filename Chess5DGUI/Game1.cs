@@ -22,9 +22,9 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = GameBoard.GetFocusedQueensStartingBoard();
+        private readonly GameBoard board = GameBoard.GetStandardStartingBoard();
         private Point4? selectedPos;
-        private List<Point4> prevMove = new();
+        private readonly List<Point4> prevMove = new();
         private List<Move> availableMoves;
 
         private MouseState prevMS;
@@ -95,7 +95,7 @@ namespace Chess5DGUI
                     depth = 0;
                     lock (algoEval)
                         algoEval.Clear();
-                    workingBoard = new GameBoard(board);
+                    workingBoard = board.Clone();
                 }
                 int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
                 Move move;
@@ -123,7 +123,7 @@ namespace Chess5DGUI
             if (ms.LeftButton == ButtonState.Pressed && prevMS.LeftButton == ButtonState.Released)
             {
                 Point clickPos = Utils.ScreenToWorldSpace(ms.Position.ToVector2(), this, viewOffset, zoom).ToPoint();
-                Point4 clickTile = new(clickPos.Y / pieceDrawSize / (board.boardSize + 1), clickPos.X / pieceDrawSize / (board.boardSize + 1), clickPos.X / pieceDrawSize % (board.boardSize + 1), clickPos.Y / pieceDrawSize % (board.boardSize + 1));
+                Point4 clickTile = new(clickPos.Y / pieceDrawSize / (board.height + 1), clickPos.X / pieceDrawSize / (board.width + 1), clickPos.X / pieceDrawSize % (board.width + 1), clickPos.Y / pieceDrawSize % (board.height + 1));
                 if (selectedPos.HasValue)
                 {
                     Move move = new(selectedPos.Value, clickTile);
@@ -195,16 +195,16 @@ namespace Chess5DGUI
                 for (int t = 0; t < board.boards[c].Count; t++)
                     if (board.boards[c][t] != null)
                     {
-                        Point drawBoardPos = new(t * pieceDrawSize * (board.boardSize + 1), c * pieceDrawSize * (board.boardSize + 1));
-                        Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * (board.boardSize + 1)));
+                        Point drawBoardPos = new(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
+                        Rectangle drawBoardRect = new(drawBoardPos, new Point(pieceDrawSize * (board.width + 1), pieceDrawSize * (board.height + 1)));
                         if (!viewWorldRect.Intersects(drawBoardRect))
                             continue;
                         int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
-                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, board.boardSize * pieceDrawSize + borderPixelWidth * 2, board.boardSize * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
+                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, board.width * pieceDrawSize + borderPixelWidth * 2, board.height * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
 
-                        for (int x = 0; x < board.boardSize; x++)
+                        for (int x = 0; x < board.width; x++)
                         {
-                            for (int y = 0; y < board.boardSize; y++)
+                            for (int y = 0; y < board.height; y++)
                             {
                                 Point drawPiecePos = new(x * pieceDrawSize + drawBoardPos.X, y * pieceDrawSize + drawBoardPos.Y);
                                 Point spriteTexPos = Utils.pieceTexIndex[board[c, t, x, y]];
@@ -277,7 +277,7 @@ namespace Chess5DGUI
 
         private void SetTargetViewOffset(float c, float t)
         {
-            targetViewOffset = new Vector2(t * pieceDrawSize * (board.boardSize + 1), c * pieceDrawSize * (board.boardSize + 1));
+            targetViewOffset = new Vector2(t * pieceDrawSize * (board.width + 1), c * pieceDrawSize * (board.height + 1));
         }
 
         private void PerformMove(Move move)

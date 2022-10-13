@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Chess5DGUI.GameBoard;
 
 namespace Chess5DGUI
 {
@@ -65,26 +66,26 @@ namespace Chess5DGUI
             bool removeNewRow = false;
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
-                board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
+                board.boards[move.from.c].Add(board.boards[move.from.c][move.from.t].Clone());
                 move.from.t++;
                 move.to.t++;
             }
             else if (move.to.t == board.boards[move.to.c].Count - 1)
             {
-                board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
-                board.boards[move.to.c].Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                board.boards[move.from.c].Add(board.boards[move.from.c][move.from.t].Clone());
+                board.boards[move.to.c].Add(board.boards[move.to.c][move.to.t].Clone());
                 move.from.t++;
                 move.to.t++;
             }
             else
             {
-                board.boards[move.from.c].Add((PIECE[,])board.boards[move.from.c][move.from.t].Clone());
+                board.boards[move.from.c].Add(board.boards[move.from.c][move.from.t].Clone());
                 if (Utils.IsWhitePiece(board[move.from]))
                 {
-                    List<PIECE[,]> newRow = new();
+                    List<Board2D> newRow = new();
                     for (int i = 0; i < move.to.t + 1; i++)
                         newRow.Add(null);
-                    newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                    newRow.Add(board.boards[move.to.c][move.to.t].Clone());
                     board.boards.Insert(0, newRow);
                     move.from.t++;
                     move.from.c++;
@@ -95,10 +96,10 @@ namespace Chess5DGUI
                 }
                 else
                 {
-                    List<PIECE[,]> newRow = new();
+                    List<Board2D> newRow = new();
                     for (int i = 0; i < move.to.t + 1; i++)
                         newRow.Add(null);
-                    newRow.Add((PIECE[,])board.boards[move.to.c][move.to.t].Clone());
+                    newRow.Add(board.boards[move.to.c][move.to.t].Clone());
                     board.boards.Add(newRow);
                     move.from.t++;
                     move.to.c = board.boards.Count - 1;
@@ -143,8 +144,8 @@ namespace Chess5DGUI
             {
                 int t = board.boards[c].Count - 1;
                 boards++;
-                for (int x = 0; x < board.boardSize; x++)
-                    for (int y = 0; y < board.boardSize; y++)
+                for (int x = 0; x < board.width; x++)
+                    for (int y = 0; y < board.height; y++)
                         score += Utils.pieceToPointValue[board[c, t, x, y]];
             }
             return score / boards;
