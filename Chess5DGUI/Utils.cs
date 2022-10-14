@@ -68,18 +68,23 @@ namespace Chess5DGUI
                 set { board[x, y] = value; }
             }
 
-            public static Board2D Board2DFromString(string s, int whitePawnStartY, int blackPawnStartY)
+            public static Board2D Board2DFromString(string s)
             {
+                if (s == "")
+                    return null;
+
                 //based on FEN, but uses _ instead of [0-9]
                 //full set: [PNBUDRQKpnbudrqk_]
                 string[] lines = s.Split("/");
                 foreach (string line in lines)
                     if (line.Length != lines[0].Length)
                         throw new ArgumentException("Rows must be same length");
-                PIECE[,] res = new PIECE[lines[0].Length, lines.Length];
+                PIECE[,] board = new PIECE[lines[0].Length, lines.Length];
+                int whitePawnStartY = -1, blackPawnStartY = -1;
                 for (int x = 0; x < lines[0].Length; x++)
                     for (int y = 0; y < lines.Length; y++)
-                        res[x, y] = lines[y][x] switch
+                    {
+                        board[x, y] = lines[y][x] switch
                         {
                             'P' => PIECE.WHITE_PAWN,
                             'N' => PIECE.WHITE_KNIGHT,
@@ -100,7 +105,13 @@ namespace Chess5DGUI
                             '_' => PIECE.NONE,
                             _ => throw new ArgumentException("Invalid character: " + lines[y][x]),
                         };
-                return new(res, whitePawnStartY, blackPawnStartY);
+                        if (board[x, y] == PIECE.WHITE_PAWN)
+                            whitePawnStartY = y;
+                        if (board[x, y] == PIECE.BLACK_PAWN)
+                            blackPawnStartY = y;
+                    }
+
+                return new(board, whitePawnStartY, blackPawnStartY);
             }
         }
 
@@ -166,16 +177,14 @@ namespace Chess5DGUI
             set { boards[c][t][x, y] = value; }
         }
 
-        public static GameBoard GameBoardFromString(params (string, int, int)[] data)
+        public static GameBoard GameBoardFromString(string data, params Move[] moves)
         {
-            return new(data.Select(x => new List<Board2D>() { Board2D.Board2DFromString(x.Item1, x.Item2, x.Item3) }).ToList());
+            List<List<Board2D>> boards = data.Split("|").Select(x => x.Split("-").Select(y => Board2D.Board2DFromString(y)).ToList()).ToList();
+            GameBoard gameBoard = new(boards);
+            foreach (Move move in moves)
+                Utils.PerformMove(gameBoard, move);
+            return gameBoard;
         }
-
-        public static GameBoard GetStandardStartingBoard() => GameBoardFromString(("RNBQKBNR/PPPPPPPP/________/________/________/________/pppppppp/rnbqkbnr", 1, 6));
-        public static GameBoard GetMiscSmallStartingBoard() => GameBoardFromString(("KQBNR/PPPPP/_____/ppppp/kqbnr", 1, 3));
-        public static GameBoard GetMiscTimelineInvasionStartingBoard() => GameBoardFromString(("NBKRB/PPPPP/_____/_____/ppppp", 1, 4), ("PPPPP/_____/_____/ppppp/nbkrb", 0, 3));
-        public static GameBoard GetFocusedQueensStartingBoard() => GameBoardFromString(("__K_Q_/______/______/______/______/_q_k__", -1, -1));  //solved: white wins
-        public static GameBoard GetFocusedRooksStartingBoard() => GameBoardFromString(("R_KR_/_____/_____/_____/_rk_r", -1, -1));
     }
 
     public struct Point4 : IEquatable<Point4>
@@ -230,6 +239,11 @@ namespace Chess5DGUI
             this.from = from;
             this.to = to;
         }
+        public Move(int c1, int t1, int x1, int y1, int c2, int t2, int x2, int y2)
+        {
+            this.from = new(c1, t1, x1, y1);
+            this.to = new(c2, t2, x2, y2);
+        }
 
         public static readonly Move Invalid = new(new(-1, -1, -1, -1), new(-1, -1, -1, -1));
 
@@ -265,13 +279,13 @@ namespace Chess5DGUI
             { PIECE.WHITE_BISHOP, 3 },
             { PIECE.WHITE_ROOK, 5 },
             { PIECE.WHITE_QUEEN, 9 },
-            { PIECE.WHITE_KING, 0 },
+            { PIECE.WHITE_KING, 1 },
             { PIECE.BLACK_PAWN, -1 },
             { PIECE.BLACK_KNIGHT, -3 },
             { PIECE.BLACK_BISHOP, -3 },
             { PIECE.BLACK_ROOK, -5 },
             { PIECE.BLACK_QUEEN, -9 },
-            { PIECE.BLACK_KING, 0 },
+            { PIECE.BLACK_KING, -1 },
         };
         public const int WIN_VALUE = 1000;
 
@@ -319,8 +333,18 @@ namespace Chess5DGUI
 
         public static Move PerformMove(GameBoard board, Move move)
         {
+            int nextEnPassant = -1;
+            bool doEnPassant = false;
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
+                if (IsSamePiece(board[move.from], PIECE.WHITE_PAWN))
+                {
+                    if (Math.Abs(move.from.y - move.to.y) == 2)
+                        nextEnPassant = move.from.x;
+                    if (move.from.x != move.to.x && board[move.to] == PIECE.NONE)
+                        doEnPassant = true;
+                }
+
                 board.boards[move.from.c].Add(board.boards[move.from.c][move.from.t].Clone());
                 move.from.t++;
                 move.to.t++;
@@ -361,12 +385,19 @@ namespace Chess5DGUI
                     board.timelinesByWhite--;
                 }
             }
-            if (board[move.to] == PIECE.WHITE_KING)
-                board.whiteKingCaptured++;
-            else if (board[move.to] == PIECE.BLACK_KING)
-                board.whiteKingCaptured--;
+            if (move.from != move.to)
+            {
+                if (board[move.to] == PIECE.WHITE_KING)
+                    board.whiteKingCaptured++;
+                else if (board[move.to] == PIECE.BLACK_KING)
+                    board.whiteKingCaptured--;
+            }
 
             PIECE p = board[move.from];
+
+            board.boards[move.to.c][move.to.t].enPassantOpportunity = nextEnPassant;
+            if (doEnPassant)
+                board[move.to.c, move.to.t, move.to.x, move.from.y] = PIECE.NONE;
 
             if (p == PIECE.WHITE_PAWN && move.to.y == board.height - 1)
                 p = PIECE.WHITE_QUEEN;
@@ -440,9 +471,9 @@ namespace Chess5DGUI
                                                     res.Add((0, new(pos, new(c, t, x, y + 2))));
                                             }
                                             //capture x/y
-                                            if (x < board.width - 1 && IsBlackPiece(board[c, t, x + 1, y + 1]))
+                                            if (x < board.width - 1 && (IsBlackPiece(board[c, t, x + 1, y + 1]) || board.boards[c][t].enPassantOpportunity == x + 1))
                                                 res.Add((pieceToPointValue[board[c, t, x + 1, y + 1]], new(pos, new(c, t, x + 1, y + 1))));
-                                            if (x > 0 && IsBlackPiece(board[c, t, x - 1, y + 1]))
+                                            if (x > 0 && (IsBlackPiece(board[c, t, x - 1, y + 1]) || board.boards[c][t].enPassantOpportunity == x - 1))
                                                 res.Add((pieceToPointValue[board[c, t, x - 1, y + 1]], new(pos, new(c, t, x - 1, y + 1))));
                                         }
                                         if (c < board.boards.Count - 1)
@@ -450,6 +481,9 @@ namespace Chess5DGUI
                                             //1 c
                                             if (t < board.boards[c + 1].Count && board[c + 1, t, x, y] == PIECE.NONE && (t == board.boards[c + 1].Count - 1 || board.timelinesByWhite < 1))
                                                 res.Add((0, new(pos, new(c + 1, t, x, y))));
+                                            //2 c
+                                            if (c < board.boards.Count - 2 && t < board.boards[c + 2].Count && board[c + 2, t, x, y] == PIECE.NONE && (t == board.boards[c + 2].Count - 1 || board.timelinesByWhite < 1))
+                                                res.Add((0, new(pos, new(c + 2, t, x, y))));
 
                                             //capture c/t
                                             if (t + 2 <= board.boards[c + 1].Count - 1)
@@ -481,9 +515,9 @@ namespace Chess5DGUI
                                                     res.Add((0, new(pos, new(c, t, x, y - 2))));
                                             }
                                             //capture x/y
-                                            if (x < board.width - 1 && IsWhitePiece(board[c, t, x + 1, y - 1]))
+                                            if (x < board.width - 1 && (IsWhitePiece(board[c, t, x + 1, y - 1]) || board.boards[c][t].enPassantOpportunity == x + 1))
                                                 res.Add((pieceToPointValue[board[c, t, x + 1, y - 1]], new(pos, new(c, t, x + 1, y - 1))));
-                                            if (x > 0 && IsWhitePiece(board[c, t, x - 1, y - 1]))
+                                            if (x > 0 && (IsWhitePiece(board[c, t, x - 1, y - 1]) || board.boards[c][t].enPassantOpportunity == x - 1))
                                                 res.Add((pieceToPointValue[board[c, t, x - 1, y - 1]], new(pos, new(c, t, x - 1, y - 1))));
                                         }
                                         if (c > 0)
@@ -491,6 +525,9 @@ namespace Chess5DGUI
                                             //1 c
                                             if (t < board.boards[c - 1].Count && board[c - 1, t, x, y] == PIECE.NONE && (t == board.boards[c - 1].Count - 1 || board.timelinesByWhite > -1))
                                                 res.Add((0, new(pos, new(c - 1, t, x, y))));
+                                            //2 c
+                                            if (c > 1 && t < board.boards[c - 2].Count && board[c - 2, t, x, y] == PIECE.NONE && (t == board.boards[c - 2].Count - 1 || board.timelinesByWhite < 1))
+                                                res.Add((0, new(pos, new(c - 2, t, x, y))));
 
                                             //capture c/t
                                             if (t + 2 <= board.boards[c - 1].Count - 1)

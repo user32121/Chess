@@ -22,7 +22,7 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = GameBoard.GetMiscTimelineInvasionStartingBoard();
+        private readonly GameBoard board = StartingBoards.FocusedPawns;
         private Point4? selectedPos;
         private readonly List<Point4> prevMove = new();
         private List<Move> availableMoves;
@@ -38,7 +38,7 @@ namespace Chess5DGUI
         private const float zoomFactor = 0.999f;
         private const float zoomSmoothingFactor = 0.9f;
 
-        private const bool isWhitePerspective = true;
+        public bool isWhitePerspective = true;
 
         private const bool algoEnabled = true;
         private Thread algoThread;
@@ -99,6 +99,9 @@ namespace Chess5DGUI
                         algoEval.Clear();
                     workingBoard = board.Clone();
                 }
+                if (depth > 200)  //may occur if no valid moves
+                    continue;
+
                 int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
                 Move move;
                 float score;
@@ -269,7 +272,7 @@ namespace Chess5DGUI
                     (float score, Move move, long milliseconds) = algoEval[i];
                     string text;
                     if (move.from != Move.Invalid.from)
-                        text = string.Format("{0}: {1:f} ({2}) ({3})", i, score, move, milliseconds / 1000f);
+                        text = string.Format("{0}: {1:f} ({2}) ({3}s)", i, score, move, milliseconds / 1000f);
                     else
                         text = string.Format("{0}: {1:f}", i, score);
                     _spriteBatch.DrawString(font, text, drawPos, Color.Black);

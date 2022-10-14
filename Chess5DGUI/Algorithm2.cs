@@ -71,9 +71,19 @@ namespace Chess5DGUI
             if (board[move.to] == PIECE.BLACK_KING)
                 return Utils.WIN_VALUE;
 
+            int nextEnPassant = -1;
+            bool doEnPassant = false;
             bool removeNewRow = false;
             if (move.from.t == move.to.t && move.from.c == move.to.c)
             {
+                if (Utils.IsSamePiece(board[move.from], PIECE.WHITE_PAWN))
+                {
+                    if (Math.Abs(move.from.y - move.to.y) == 2)
+                        nextEnPassant = move.from.x;
+                    if (move.from.x != move.to.x && board[move.to] == PIECE.NONE)
+                        doEnPassant = true;
+                }
+
                 board.boards[move.from.c].Add(board.boards[move.from.c][move.from.t].Clone());
                 move.from.t++;
                 move.to.t++;
@@ -124,6 +134,10 @@ namespace Chess5DGUI
             board.whiteKingCaptured += kingCaptures;
 
             PIECE p = board[move.from];
+
+            board.boards[move.to.c][move.to.t].enPassantOpportunity = nextEnPassant;
+            if (doEnPassant)
+                board[move.to.c, move.to.t, move.to.x, move.from.y] = PIECE.NONE;
 
             if (p == PIECE.WHITE_PAWN && move.to.y == board.height - 1)
                 p = PIECE.WHITE_QUEEN;
