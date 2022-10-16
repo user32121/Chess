@@ -14,12 +14,16 @@ namespace Chess5DGUI
             {PIECE.WHITE_KING,new Point(0,0)},
             {PIECE.WHITE_QUEEN,new Point(320,0)},
             {PIECE.WHITE_BISHOP,new Point(640,0)},
+            {PIECE.WHITE_UNICORN,new Point(320,640)},
+            {PIECE.WHITE_DRAGON,new Point(960,640)},
             {PIECE.WHITE_KNIGHT,new Point(960,0)},
             {PIECE.WHITE_ROOK,new Point(1280,0)},
             {PIECE.WHITE_PAWN,new Point(1600,0)},
             {PIECE.BLACK_KING,new Point(0,320)},
             {PIECE.BLACK_QUEEN,new Point(320,320)},
             {PIECE.BLACK_BISHOP,new Point(640,320)},
+            {PIECE.BLACK_UNICORN,new Point(640,640)},
+            {PIECE.BLACK_DRAGON,new Point(1280,640)},
             {PIECE.BLACK_KNIGHT,new Point(960,320)},
             {PIECE.BLACK_ROOK,new Point(1280,320)},
             {PIECE.BLACK_PAWN,new Point(1600,320)},
@@ -30,12 +34,16 @@ namespace Chess5DGUI
             { PIECE.WHITE_PAWN, 1 },
             { PIECE.WHITE_KNIGHT, 3 },
             { PIECE.WHITE_BISHOP, 3 },
+            { PIECE.WHITE_UNICORN, 3 },
+            { PIECE.WHITE_DRAGON, 3 },
             { PIECE.WHITE_ROOK, 5 },
             { PIECE.WHITE_QUEEN, 9 },
             { PIECE.WHITE_KING, 1 },
             { PIECE.BLACK_PAWN, -1 },
             { PIECE.BLACK_KNIGHT, -3 },
             { PIECE.BLACK_BISHOP, -3 },
+            { PIECE.BLACK_UNICORN, -3 },
+            { PIECE.BLACK_DRAGON, -3 },
             { PIECE.BLACK_ROOK, -5 },
             { PIECE.BLACK_QUEEN, -9 },
             { PIECE.BLACK_KING, -1 },
@@ -44,6 +52,8 @@ namespace Chess5DGUI
 
         public static readonly List<Point4> rookDirs = new();
         public static readonly List<Point4> bishopDirs = new();
+        public static readonly List<Point4> unicornDirs = new();
+        public static readonly List<Point4> dragonDirs = new();
         public static readonly List<Point4> queenDirs = new();
         public static readonly List<Point4> knightMoves = new();
 
@@ -79,6 +89,10 @@ namespace Chess5DGUI
                                 ar[i2] *= 2;
                                 knightMoves.Add(new(ar[0], ar[1], ar[2], ar[3]));
                             }
+                            else if (ac + at + ax + ay == 3)
+                                unicornDirs.Add(new(c, t, x, y));
+                            else if (ac + at + ax + ay == 4)
+                                dragonDirs.Add(new(c, t, x, y));
                             if (ac + at + ax + ay > 0)
                                 queenDirs.Add(new(c, t, x, y));
                         }
@@ -332,6 +346,42 @@ namespace Chess5DGUI
                                 case PIECE.WHITE_BISHOP:
                                 case PIECE.BLACK_BISHOP:
                                     foreach (Point4 item in bishopDirs)
+                                    {
+                                        for (int i = 1; i < 100; i++)
+                                        {
+                                            Point4 pos2 = pos + item * i;
+                                            if (!IsInBounds(board, pos2))
+                                                break;
+                                            PIECE p2 = board[pos2];
+                                            if (IsFriendlyPiece(p, p2))
+                                                break;
+                                            res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
+                                            if (IsOpponentPiece(p, p2))
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                case PIECE.WHITE_UNICORN:
+                                case PIECE.BLACK_UNICORN:
+                                    foreach (Point4 item in unicornDirs)
+                                    {
+                                        for (int i = 1; i < 100; i++)
+                                        {
+                                            Point4 pos2 = pos + item * i;
+                                            if (!IsInBounds(board, pos2))
+                                                break;
+                                            PIECE p2 = board[pos2];
+                                            if (IsFriendlyPiece(p, p2))
+                                                break;
+                                            res.Add((pieceToPointValue[board[pos2]], new(pos, pos2)));
+                                            if (IsOpponentPiece(p, p2))
+                                                break;
+                                        }
+                                    }
+                                    break;
+                                case PIECE.WHITE_DRAGON:
+                                case PIECE.BLACK_DRAGON:
+                                    foreach (Point4 item in dragonDirs)
                                     {
                                         for (int i = 1; i < 100; i++)
                                         {

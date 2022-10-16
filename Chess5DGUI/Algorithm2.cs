@@ -147,7 +147,7 @@ namespace Chess5DGUI
             board[move.to] = p;
             board[move.from] = PIECE.NONE;
 
-            int minTurn = board.boards.Min(timeline => timeline.Count);
+            int minTurn = board.boards.Where((timeline, c) => c >= board.timelinesByWhite - 1 && c <= board.boards.Count + board.timelinesByWhite).Min(timeline => timeline.Count);
             float score = GetScore(board, minTurn % 2 == 1, maxDepth - 1, a, b, ref earlyExit);
 
             board.boards[move.from.c].RemoveAt(move.from.t);
@@ -192,7 +192,7 @@ namespace Chess5DGUI
                         score += Utils.pieceToPointValue[board[c, t, x, y]];
             }
             score /= boards;
-            score -= board.timelinesByWhite * 5;
+            score -= board.timelinesByWhite * 10;
             score -= board.whiteKingCaptured * Utils.WIN_VALUE;
             return score;
         }

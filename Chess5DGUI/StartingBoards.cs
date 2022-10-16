@@ -16,14 +16,24 @@ namespace Chess5DGUI
 
         //solved: white wins
         public static GameBoard FocusedQueens => GameBoard.GameBoardFromString("__K_Q_/______/______/______/______/_q_k__");
+        //
         public static GameBoard FocusedRooks => GameBoard.GameBoardFromString("R_KR_/_____/_____/_____/_rk_r");
         //solved?: white wins
         public static GameBoard FocusedKnights => GameBoard.GameBoardFromString("_NK_N/_____/_____/_____/n_kn_");
+        //
+        public static GameBoard FocusedBishops => GameBoard.GameBoardFromString("_KBB_/_____/_____/_____/_bbk_");
+        //
+        public static GameBoard FocusedUnicorns => GameBoard.GameBoardFromString("KU_U_/_____/_____/_____/_u_uk");
+        //
+        public static GameBoard FocusedDragons => GameBoard.GameBoardFromString("KDD__/_____/_____/_____/__ddk");
+        //
         public static GameBoard FocusedPawns => GameBoard.GameBoardFromString("KPPPP/_____/_____/_____/ppppk");
         //solved: first to branch timelines loses
         public static GameBoard FocusedKings => GameBoard.GameBoardFromString("K__/___/__k");
 
         public static GameBoard Test => GameBoard.GameBoardFromString("_P__K/_____/_____/_____/p___k");
+
+
 
         //solved
         public static GameBoard PuzzleRook1 => GameBoard.GameBoardFromString("K_R__/_____/_____/_____/____k", new(0, 0, 2, 0, 0, 0, 4, 0), new(0, 1, 4, 4, 0, 1, 3, 3), new(0, 2, 0, 0, 0, 2, 1, 1), new(0, 3, 3, 3, 0, 3, 2, 3));
@@ -33,7 +43,7 @@ namespace Chess5DGUI
         public static GameBoard PuzzleRook3 => GameBoard.GameBoardFromString("KR____/_R____/______/______/______/_____k", new(0, 0, 1, 1, 0, 0, 4, 1), new(0, 1, 5, 5, 0, 1, 5, 4));
         //unsolved: need to implement inactive timelines
         public static GameBoard PuzzleRook4 => GameBoard.GameBoardFromString("___K_/__r__/___k_/_____/_____", new Move(0, 0, 3, 0, 0, 0, 4, 0));
-        //partially solved: would need to process 8 steps
+        //human solved: would need to process 8 steps
         public static GameBoard PuzzleKnight6 => GameBoard.GameBoardFromString("K_N__/_____/_____/_____/____k");
         //solved
         public static GameBoard PuzzleKing1 => GameBoard.GameBoardFromString("_B___/__K__/_____/_k___/_____", new(0, 0, 2, 1, 0, 0, 1, 1), new(0, 1, 1, 3, 0, 1, 0, 3), new(0, 2, 1, 1, 0, 2, 0, 1), new(0, 3, 0, 3, 0, 3, 1, 3), new(0, 4, 1, 0, 0, 0, 4, 0));
@@ -47,13 +57,13 @@ namespace Chess5DGUI
         public static GameBoard OpeningTrap1 => GameBoard.GameBoardFromString("RNBQKBNR/PPPPPPPP/________/________/________/________/pppppppp/rnbqkbnr", new(0, 0, 4, 1, 0, 0, 4, 3), new(0, 1, 4, 6, 0, 1, 4, 4), new(0, 2, 3, 0, 0, 2, 7, 4), new(0, 3, 6, 7, 0, 3, 5, 5));
         //solved
         public static GameBoard OpeningTrap2 => GameBoard.GameBoardFromString("RNBQKBNR/PPPPPPPP/________/________/________/________/pppppppp/rnbqkbnr", new(0, 0, 3, 1, 0, 0, 3, 3), new(0, 1, 4, 6, 0, 1, 4, 4), new(0, 2, 3, 3, 0, 2, 4, 4), new(0, 3, 3, 7, 0, 3, 4, 6), new(0, 4, 1, 0, 0, 4, 3, 1));
-        //partially solved: would need to process 6 steps
+        //human solved: would need to process 6 steps
         public static GameBoard OpeningTrap3 => GameBoard.GameBoardFromString("RNBQKBNR/PPPPPPPP/________/________/________/________/pppppppp/rnbqkbnr", new(0, 0, 4, 1, 0, 0, 4, 3), new(0, 1, 2, 6, 0, 1, 2, 4), new(0, 2, 3, 0, 0, 2, 7, 4), new(0, 3, 3, 6, 0, 3, 3, 5), new(0, 4, 5, 0, 0, 4, 1, 4), new(0, 5, 1, 7, 0, 5, 2, 5), new(0, 6, 3, 1, 0, 6, 3, 2), new(0, 7, 6, 7, 0, 7, 5, 5));
         //unsolved
         public static GameBoard Tricky1 => GameBoard.GameBoardFromString("PPP_/____/____/p___|_B__/K___/____/___k");
         //solved
         public static GameBoard Tricky2 => GameBoard.GameBoardFromString("____/_BB_/____/__p_|_N__/K___/__p_/___k");
-        //unsolved: need to implement inactive timelines
+        //human solved: need to process 7 steps
         public static GameBoard PuzzleAdvBranching1 => GameBoard.GameBoardFromString("_K____/PP_N_Q/______/______/_n__pp/____rk", new(0, 0, 0, 1, 0, 0, 0, 3), new(0, 1, 1, 4, 0, 1, 3, 3), new(0, 2, 3, 1, 0, 2, 2, 3), new(0, 3, 5, 4, 0, 3, 5, 3), new(0, 4, 2, 3, 0, 0, 2, 2), new(1, 5, 3, 3, 0, 1, 3, 3));
     }
 }

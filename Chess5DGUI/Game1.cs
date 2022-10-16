@@ -22,7 +22,7 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = StartingBoards.Standard;
+        private readonly GameBoard board = StartingBoards.FocusedDragons;
         private Point4? selectedPos;
         private readonly List<Point4> prevMove = new();
         private List<Move> availableMoves;
@@ -102,7 +102,7 @@ namespace Chess5DGUI
                 if (depth > 200)  //may occur if no valid moves
                     continue;
 
-                int minTurn = workingBoard.boards.Min(timeline => timeline.Count);
+                int minTurn = board.boards.Where((timeline, c) => c >= board.timelinesByWhite - 1 && c <= board.boards.Count + board.timelinesByWhite).Min(timeline => timeline.Count);
                 Move move;
                 float score;
                 stopwatch.Restart();
@@ -213,7 +213,12 @@ namespace Chess5DGUI
                         if (!viewWorldRect.Intersects(drawBoardRect))
                             continue;
                         int borderPixelWidth = (int)(pieceDrawSize * colorBorderWidth);
-                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, board.width * pieceDrawSize + borderPixelWidth * 2, board.height * pieceDrawSize + borderPixelWidth * 2), t % 2 == 0 ? Color.White : Color.Black);
+                        Color boardCol;
+                        if (c >= board.timelinesByWhite - 1 && c <= board.boards.Count + board.timelinesByWhite)
+                            boardCol = t % 2 == 0 ? Color.White : Color.Black;
+                        else
+                            boardCol = Color.Gray;
+                        _spriteBatch.Draw(blank, new Rectangle(drawBoardPos.X - borderPixelWidth, drawBoardPos.Y - borderPixelWidth, board.width * pieceDrawSize + borderPixelWidth * 2, board.height * pieceDrawSize + borderPixelWidth * 2), boardCol);
 
                         for (int x = 0; x < board.width; x++)
                         {
