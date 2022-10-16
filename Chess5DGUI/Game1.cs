@@ -22,7 +22,7 @@ namespace Chess5DGUI
         private SpriteFont font;
         private const float colorBorderWidth = 0.3f;
 
-        private readonly GameBoard board = StartingBoards.FocusedPawns;
+        private readonly GameBoard board = StartingBoards.FocusedQueens;
         private Point4? selectedPos;
         private readonly List<Point4> prevMove = new();
         private List<Move> availableMoves;

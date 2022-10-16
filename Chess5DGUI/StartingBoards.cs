@@ -17,6 +17,8 @@ namespace Chess5DGUI
         //solved: white wins
         public static GameBoard FocusedQueens => GameBoard.GameBoardFromString("__K_Q_/______/______/______/______/_q_k__");
         public static GameBoard FocusedRooks => GameBoard.GameBoardFromString("R_KR_/_____/_____/_____/_rk_r");
+        //solved?: white wins
+        public static GameBoard FocusedKnights => GameBoard.GameBoardFromString("_NK_N/_____/_____/_____/n_kn_");
         public static GameBoard FocusedPawns => GameBoard.GameBoardFromString("KPPPP/_____/_____/_____/ppppk");
         //solved: first to branch timelines loses
         public static GameBoard FocusedKings => GameBoard.GameBoardFromString("K__/___/__k");
